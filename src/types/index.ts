@@ -141,6 +141,7 @@ export interface Message {
   conversationId: string;
   senderId: string;
   senderName: string;
+  recipientRole: 'owner' | 'tenant';
   text: string;
   createdAt: string;
 }

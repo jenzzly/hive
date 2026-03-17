@@ -1,4 +1,8 @@
-import emailjs from '@emailjs/browser';
+declare global {
+  interface Window {
+    emailjs: any;
+  }
+}
 
 const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
 const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
@@ -13,10 +17,14 @@ interface EmailParams {
 }
 
 export const sendEmail = async (params: EmailParams): Promise<void> => {
+  if (!window.emailjs) {
+    throw new Error('EmailJS CDN is not loaded properly in index.html');
+  }
+
   try {
-    await emailjs.send(SERVICE_ID, TEMPLATE_ID, params as unknown as Record<string, unknown>, PUBLIC_KEY);
+    await window.emailjs.send(SERVICE_ID, TEMPLATE_ID, params, PUBLIC_KEY);
   } catch (err: any) {
-    throw new Error('Email sending failed: ' + (err?.text || err?.message || 'Unknown error'));
+    throw new Error('Email sending failed: ' + JSON.stringify(err));
   }
 };
 
@@ -85,4 +93,26 @@ export const notifyOwnerBookingRequest = async (
         `Log in to Hive to review and respond to the request.`,
     });
   } catch { /* fire-and-forget */ }
+};
+
+/**
+ * Test EmailJS configuration
+ */
+export const testEmailJS = async (testEmail: string = 'test@example.com'): Promise<boolean> => {
+  try {
+    const testData = {
+      to_email: testEmail,
+      to_name: 'Test User',
+      from_name: 'Test Sender',
+      subject: 'Test Email from Hive',
+      message: 'This is a test message from the Hive app. If you see this, EmailJS is working perfectly!',
+    };
+
+    console.log('🧪 Testing EmailJS with:', testData);
+    await sendEmail(testData);
+    return true;
+  } catch (error) {
+    console.error('❌ EmailJS test failed:', error);
+    return false;
+  }
 };
