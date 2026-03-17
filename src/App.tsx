@@ -1,0 +1,111 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { LanguageProvider } from './contexts/LanguageContext';
+import Navbar from './components/Navbar';
+import Home from './pages/Home';
+import PropertyDetail from './pages/PropertyDetail';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import OwnerDashboard from './pages/OwnerDashboard';
+import TenantDashboard from './pages/TenantDashboard';
+import MaintenancePage from './pages/MaintenancePage';
+import ContractsPage from './pages/ContractsPage';
+import AdminDashboard from './pages/AdminDashboard';
+import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import SettingsPage from './pages/SettingsPage';
+import OwnerAnalyticsPage from './pages/OwnerAnalyticsPage';
+import PlatformAnalyticsPage from './pages/PlatformAnalyticsPage';
+import MessagesPage from './pages/MessagesPage';
+
+function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
+  const { userProfile, loading } = useAuth();
+  if (loading) return <div className="loading-center"><div className="spinner" /></div>;
+  if (!userProfile) return <Navigate to="/login" replace />;
+  if (roles && !roles.includes(userProfile.role)) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
+function AppRoutes() {
+  return (
+    <>
+      <Navbar />
+      <Routes>
+        {/* Public */}
+        <Route path="/" element={<Home />} />
+        <Route path="/property/:id" element={<PropertyDetail />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* Any logged-in user */}
+        <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+
+        {/* Owner + above */}
+        <Route path="/dashboard" element={
+          <ProtectedRoute roles={['owner', 'admin', 'superAdmin']}>
+            <OwnerDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/analytics" element={
+          <ProtectedRoute roles={['owner', 'admin', 'superAdmin']}>
+            <OwnerAnalyticsPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/contracts" element={
+          <ProtectedRoute roles={['tenant', 'owner', 'admin', 'superAdmin']}>
+            <ContractsPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/maintenance" element={
+          <ProtectedRoute roles={['tenant', 'owner', 'admin', 'superAdmin']}>
+            <MaintenancePage />
+          </ProtectedRoute>
+        } />
+        <Route path="/messages" element={
+          <ProtectedRoute roles={['tenant', 'owner', 'admin', 'superAdmin']}>
+            <MessagesPage />
+          </ProtectedRoute>
+        } />
+
+        {/* Admin */}
+        <Route path="/admin" element={
+          <ProtectedRoute roles={['admin', 'superAdmin']}>
+            <AdminDashboard />
+          </ProtectedRoute>
+        } />
+
+        {/* SuperAdmin */}
+        <Route path="/super-admin" element={
+          <ProtectedRoute roles={['superAdmin']}>
+            <SuperAdminDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/platform-analytics" element={
+          <ProtectedRoute roles={['admin', 'superAdmin']}>
+            <PlatformAnalyticsPage />
+          </ProtectedRoute>
+        } />
+
+        {/* Tenant */}
+        <Route path="/my-property" element={
+          <ProtectedRoute roles={['tenant']}>
+            <TenantDashboard />
+          </ProtectedRoute>
+        } />
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <LanguageProvider>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </LanguageProvider>
+    </BrowserRouter>
+  );
+}

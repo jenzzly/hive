@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function uid()    { return request.auth.uid; }
+    function authed() { return request.auth != null; }
+    function role() {
+      return get(/databases/$(database)/documents/users/$(uid())).data.role;
+    }
+    function isSuperAdmin() { return authed() && role() == 'superAdmin'; }
+    function isAdmin()      { return authed() && role() == 'admin'; }
+    function isOwner()      { return authed() && role() == 'owner'; }
+    function isTenant()     { return authed() && role() == 'tenant'; }
+    function isPriv()       { return isSuperAdmin() || isAdmin(); }
+
+    // ── USERS ──
+    match /users/{userId} {
+      allow read:   if authed() && (uid() == userId || isPriv());
+      allow create: if authed() && uid() == userId;
+      allow update: if authed() && (uid() == userId || isPriv());
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── PROPERTIES ──
+    match /properties/{propertyId} {
+      allow read: if resource.data.isPublic == true
+                  && resource.data.status == 'available';
+      allow read: if authed();
+      allow create: if isPriv()
+        || (isOwner() && request.resource.data.ownerId == uid());
+      allow update, delete: if isPriv()
+        || (isOwner() && resource.data.ownerId == uid());
+    }
+
+    // ── CONTRACTS ──
+    match /contracts/{contractId} {
+      allow read: if isPriv()
+        || (authed() && (resource.data.tenantId == uid()
+                      || resource.data.ownerId == uid()));
+      allow create: if isPriv()
+        || (isOwner() && request.resource.data.ownerId == uid());
+      allow update: if isPriv()
+        || (isOwner() && resource.data.ownerId == uid());
+      allow delete: if isPriv();
+    }
+
+    // ── MAINTENANCE REQUESTS ──
+    match /maintenanceRequests/{reqId} {
+      allow read: if authed();
+      allow create: if authed()
+        && ((isTenant() && request.resource.data.tenantId == uid()) || isPriv());
+      allow update: if isPriv() || isOwner();
+      allow delete: if isPriv();
+    }
+
+    // ── BOOKING REQUESTS ──
+    match /bookingRequests/{reqId} {
+      allow read: if authed();
+      allow create: if authed();
+      allow update: if isPriv() || isOwner();
+      allow delete: if isPriv() || (authed() && resource.data.tenantId == uid());
+    }
+
+    // ── PLATFORM SETTINGS (superAdmin write, anyone authed read) ──
+    match /platform/{docId} {
+      allow read:  if authed();
+      allow write: if isSuperAdmin();
+    }
+
+    // ── CONVERSATIONS ──
+    match /conversations/{convId} {
+      allow read: if authed();
+      allow create: if authed();
+      allow update: if authed();
+      allow delete: if isPriv();
+    }
+
+    // ── MESSAGES (root collection) ──
+    match /messages/{msgId} {
+      allow read: if authed();
+      allow create: if authed();
+      allow update, delete: if isPriv();
+    }
+  }
+}
