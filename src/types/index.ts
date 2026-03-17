@@ -71,6 +71,7 @@ export interface Contract {
   tenantId: string;
   ownerId: string;
   rentAmount: number;
+  depositAmount: number;         // security deposit held by owner
   startDate: string;
   endDate: string;
   contractDocumentURL?: string;
@@ -92,6 +93,7 @@ export interface MaintenanceRequest {
   status: MaintenanceStatus;
   createdAt: string;
   resolvedAt?: string;
+  repairCost?: number;           // cost recorded by owner after resolution
 }
 
 export type BookingStatus = 'pending' | 'approved' | 'rejected';
@@ -144,4 +146,40 @@ export interface Message {
   recipientRole: 'owner' | 'tenant';
   text: string;
   createdAt: string;
+}
+
+// ── Rent Payments ──────────────────────────────────────────────────────
+export type PaymentStatus = 'pending' | 'verified' | 'rejected';
+
+export interface RentPayment {
+  id: string;
+  propertyId: string;
+  contractId: string;
+  tenantId: string;
+  ownerId: string;
+  month: string;             // "2025-03" ISO year-month
+  amount: number;
+  proofUrl: string;          // Cloudinary URL for receipt / bank screenshot
+  notes: string;
+  status: PaymentStatus;
+  createdAt: string;
+  verifiedAt?: string;
+}
+
+// ── Reimbursement Requests ─────────────────────────────────────────────
+export type ReimbursementStatus = 'pending' | 'approved' | 'rejected' | 'paid';
+
+export interface ReimbursementRequest {
+  id: string;
+  propertyId: string;
+  tenantId: string;
+  ownerId: string;
+  title: string;
+  description: string;
+  amount: number;
+  receiptUrls: string[];     // proof files tenant paid out of pocket
+  status: ReimbursementStatus;
+  ownerNote?: string;
+  createdAt: string;
+  resolvedAt?: string;
 }

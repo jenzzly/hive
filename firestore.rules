@@ -14,8 +14,9 @@ service cloud.firestore {
     function isPriv()       { return isSuperAdmin() || isAdmin(); }
 
     // ── USERS ──
+    // Any authenticated user can read profiles (tenants need owner email for contact/booking)
     match /users/{userId} {
-      allow read:   if authed() && (uid() == userId || isPriv());
+      allow read:   if authed();
       allow create: if authed() && uid() == userId;
       allow update: if authed() && (uid() == userId || isPriv());
       allow delete: if isSuperAdmin();
@@ -23,24 +24,18 @@ service cloud.firestore {
 
     // ── PROPERTIES ──
     match /properties/{propertyId} {
-      allow read: if resource.data.isPublic == true
-                  && resource.data.status == 'available';
+      allow read: if resource.data.isPublic == true && resource.data.status == 'available';
       allow read: if authed();
-      allow create: if isPriv()
-        || (isOwner() && request.resource.data.ownerId == uid());
-      allow update, delete: if isPriv()
-        || (isOwner() && resource.data.ownerId == uid());
+      allow create: if isPriv() || (isOwner() && request.resource.data.ownerId == uid());
+      allow update, delete: if isPriv() || (isOwner() && resource.data.ownerId == uid());
     }
 
     // ── CONTRACTS ──
     match /contracts/{contractId} {
       allow read: if isPriv()
-        || (authed() && (resource.data.tenantId == uid()
-                      || resource.data.ownerId == uid()));
-      allow create: if isPriv()
-        || (isOwner() && request.resource.data.ownerId == uid());
-      allow update: if isPriv()
-        || (isOwner() && resource.data.ownerId == uid());
+        || (authed() && (resource.data.tenantId == uid() || resource.data.ownerId == uid()));
+      allow create: if isPriv() || (isOwner() && request.resource.data.ownerId == uid());
+      allow update: if isPriv() || (isOwner() && resource.data.ownerId == uid());
       allow delete: if isPriv();
     }
 
@@ -49,7 +44,8 @@ service cloud.firestore {
       allow read: if authed();
       allow create: if authed()
         && ((isTenant() && request.resource.data.tenantId == uid()) || isPriv());
-      allow update: if isPriv() || isOwner();
+      allow update: if isPriv() || isOwner()
+        || (isTenant() && resource.data.tenantId == uid());
       allow delete: if isPriv();
     }
 
@@ -61,7 +57,31 @@ service cloud.firestore {
       allow delete: if isPriv() || (authed() && resource.data.tenantId == uid());
     }
 
-    // ── PLATFORM SETTINGS (superAdmin write, anyone authed read) ──
+    // ── RENT PAYMENTS ──
+    // Tenants submit proof; owners verify; admins/superAdmins see all
+    match /rentPayments/{payId} {
+      allow read: if isPriv()
+        || (authed() && (resource.data.tenantId == uid() || resource.data.ownerId == uid()));
+      allow create: if authed()
+        && (isTenant() && request.resource.data.tenantId == uid()) || isPriv();
+      allow update: if isPriv()
+        || (isOwner() && resource.data.ownerId == uid());
+      allow delete: if isPriv();
+    }
+
+    // ── REIMBURSEMENT REQUESTS ──
+    // Tenants create; owners approve/reject/mark paid; admins see all
+    match /reimbursementRequests/{rId} {
+      allow read: if isPriv()
+        || (authed() && (resource.data.tenantId == uid() || resource.data.ownerId == uid()));
+      allow create: if authed()
+        && (isTenant() && request.resource.data.tenantId == uid()) || isPriv();
+      allow update: if isPriv()
+        || (isOwner() && resource.data.ownerId == uid());
+      allow delete: if isPriv();
+    }
+
+    // ── PLATFORM SETTINGS ──
     match /platform/{docId} {
       allow read:  if authed();
       allow write: if isSuperAdmin();
@@ -75,7 +95,7 @@ service cloud.firestore {
       allow delete: if isPriv();
     }
 
-    // ── MESSAGES (root collection) ──
+    // ── MESSAGES ──
     match /messages/{msgId} {
       allow read: if authed();
       allow create: if authed();
