@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getProperty } from '../services/propertyService';
 import { getUserProfile } from '../services/authService';
-import { notifyOwnerContact, notifyOwnerBookingRequest } from '../utils/emailService';
+// FIX: import from services/ (the single canonical email file), not utils/
+import { notifyOwnerContact, notifyOwnerBookingRequest } from '../services/emailService';
 import { createBookingRequest } from '../services/bookingService';
 import { getOrCreateConversation } from '../services/messageService';
 import { useAuth } from '../contexts/AuthContext';
@@ -41,28 +42,43 @@ export default function PropertyDetail() {
     return () => window.removeEventListener('resize', h);
   }, []);
 
+  // Load property (public, no auth required)
   useEffect(() => {
     if (!id) return;
-    // Fetch without auth — public properties are readable by all
-    getProperty(id).then(async p => {
+    getProperty(id).then(p => {
       if (!p) { navigate('/'); return; }
       setProperty(p);
-      try {
-        const ownerData = await getUserProfile(p.ownerId);
-        setOwner(ownerData);
-      } catch { /* owner profile may need auth */ }
       setLoading(false);
-    }).catch(() => { navigate('/'); });
+    }).catch(() => navigate('/'));
   }, [id]);
+
+  // FIX: Load owner profile in a separate effect that re-runs whenever
+  // firebaseUser changes. Previously this was nested inside the property
+  // fetch and ran only once — if auth resolved after the property loaded
+  // (very common on first paint), owner stayed null and emails were never sent.
+  useEffect(() => {
+    if (!property) return;
+    getUserProfile(property.ownerId)
+      .then(ownerData => setOwner(ownerData))
+      .catch(() => setOwner(null));
+  }, [property, firebaseUser]); // re-run when user signs in/out
 
   const handleContact = async () => {
     if (!owner || !userProfile || !property) return;
     setSending(true);
     try {
-      await notifyOwnerContact(owner.email, owner.name, userProfile.name, property.title, contactMsg);
+      await notifyOwnerContact(
+        owner.email,
+        owner.name,
+        userProfile.name,
+        property.title,
+        contactMsg,
+      );
       setSent(true);
       setContactMsg('');
-    } catch { /* silent */ }
+    } catch (err) {
+      console.error('Contact email failed:', err);
+    }
     setSending(false);
   };
 
@@ -101,7 +117,7 @@ export default function PropertyDetail() {
     setSending(false);
   };
 
-  if (loading) return <div className="loading-center"><div className="spinner" /></div>;
+  if (loading) return <div className="loading-center" > <div className="spinner" /> </div>;
   if (!property) return null;
 
   const isAvailable = property.status === 'available';
@@ -110,15 +126,16 @@ export default function PropertyDetail() {
 
   // The action card content
   const ActionCard = (
-    <div className="card" style={{ padding: 24, position: isMobile ? 'static' : 'sticky', top: 80 }}>
+    <div className="card" style={{ padding: 24, position: isMobile ? 'static' : 'sticky', top: 80 }
+    }>
       {/* Price */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 4 }}>
+      < div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 4 }}>
         <span style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--teal)', fontWeight: 700 }}>
           ${property.price.toLocaleString()}
         </span>
-        <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{t('perMonth')}</span>
+        < span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}> {t('perMonth')} </span>
       </div>
-      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 5 }}>
+      < div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 5 }}>
         📍 {property.location}
       </div>
 
@@ -129,217 +146,210 @@ export default function PropertyDetail() {
         </span>
       </div>
 
-      {isAvailable ? (
-        <>
-          {/* Panel toggle */}
-          <div style={S.panelToggle}>
-            <button style={{ ...S.panelBtn, ...(panel === 'book' ? S.panelBtnActive : {}) }} onClick={() => setPanel('book')}>
-              📋 {t('bookProperty')}
-            </button>
-            <button style={{ ...S.panelBtn, ...(panel === 'contact' ? S.panelBtnActive : {}) }} onClick={() => setPanel('contact')}>
-              ✉ {t('contactOwner')}
-            </button>
-          </div>
+      {
+        isAvailable ? (
+          <>
+            {/* Panel toggle */}
+            < div style={S.panelToggle} >
+              <button style={{ ...S.panelBtn, ...(panel === 'book' ? S.panelBtnActive : {}) }} onClick={() => setPanel('book')
+              }>
+                📋 {t('bookProperty')}
+              </button>
+              < button style={{ ...S.panelBtn, ...(panel === 'contact' ? S.panelBtnActive : {}) }} onClick={() => setPanel('contact')}>
+                ✉ {t('contactOwner')}
+              </button>
+            </div>
 
-          {panel === 'book' ? (
-            /* BOOKING PANEL */
-            !firebaseUser ? (
-              <div style={S.loginPrompt}>
-                <div style={S.loginPromptIcon}>🏠</div>
-                <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--text-primary)' }}>
-                  {t('loginToBook')}
-                </div>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
-                  Create an account or sign in to send a booking request for this property.
-                </p>
-                <Link to={`/login?redirect=/property/${property.id}`} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', display: 'flex', marginBottom: 8 }}>
-                  {t('signIn')}
-                </Link>
-                <Link to={`/register?redirect=/property/${property.id}`} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'center', display: 'flex' }}>
-                  {t('getStarted')}
-                </Link>
-              </div>
-            ) : booked ? (
-              <div style={S.successBox}>
-                <div style={{ fontSize: '1.5rem', marginBottom: 8 }}>✓</div>
-                <div style={{ fontWeight: 600 }}>{t('bookingSuccess')}</div>
-                <p style={{ fontSize: '0.85rem', marginTop: 4, opacity: 0.8 }}>The owner will review your request shortly.</p>
-              </div>
-            ) : (
-              <>
-                <textarea
-                  className="form-input"
-                  placeholder={t('bookingMessage')}
-                  value={bookingMsg}
-                  onChange={e => setBookingMsg(e.target.value)}
-                  rows={4}
-                  style={{ marginBottom: 12 }}
-                />
-                <button
-                  className="btn btn-primary"
-                  style={{ width: '100%', justifyContent: 'center' }}
-                  onClick={handleBook}
-                  disabled={!bookingMsg.trim() || sending}
-                >
-                  {sending ? '...' : t('submitBooking')}
-                </button>
-              </>
-            )
-          ) : (
-            /* CONTACT PANEL */
-            !firebaseUser ? (
-              <div style={S.loginPrompt}>
-                <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: 12 }}>
-                  Sign in to send a message to the owner.
-                </p>
-                <Link to={`/login?redirect=/property/${property.id}`} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', display: 'flex' }}>
-                  {t('signIn')}
-                </Link>
-              </div>
-            ) : sent ? (
-              <div style={S.successBox}>{t('messageSent')}</div>
-            ) : (
-              <>
-                <textarea
-                  className="form-input"
-                  placeholder="Write a message..."
-                  value={contactMsg}
-                  onChange={e => setContactMsg(e.target.value)}
-                  rows={4}
-                  style={{ marginBottom: 12 }}
-                />
-                <button
-                  className="btn btn-secondary"
-                  style={{ width: '100%', justifyContent: 'center' }}
-                  onClick={handleContact}
-                  disabled={!contactMsg.trim() || sending}
-                >
-                  {sending ? '...' : t('sendMessage')}
-                </button>
-              </>
-            )
-          )}
-        </>
-      ) : (
-        <div style={{ padding: '16px', background: 'var(--surface2)', borderRadius: 10, textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-          This property is currently occupied and not available for booking.
-        </div>
-      )}
+            {
+              panel === 'book' ? (
+                /* BOOKING PANEL */
+                !firebaseUser ? (
+                  <div style={S.loginPrompt} >
+                    <div style={S.loginPromptIcon} >🏠</div>
+                    < div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--text-primary)' }
+                    }>
+                      {t('loginToBook')}
+                    </div>
+                    < p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
+                      Create an account or sign in to send a booking request for this property.
+                    </p>
+                    < Link to={`/login?redirect=/property/${property.id}`} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', display: 'flex', marginBottom: 8 }}>
+                      {t('signIn')}
+                    </Link>
+                    < Link to={`/register?redirect=/property/${property.id}`} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'center', display: 'flex' }}>
+                      {t('getStarted')}
+                    </Link>
+                  </div>
+                ) : booked ? (
+                  <div style={S.successBox} >
+                    <div style={{ fontSize: '1.5rem', marginBottom: 8 }}>✓</div>
+                    < div style={{ fontWeight: 600 }}> {t('bookingSuccess')} </div>
+                    < p style={{ fontSize: '0.85rem', marginTop: 4, opacity: 0.8 }}> The owner will review your request shortly.</p>
+                  </div>
+                ) : (
+                  <>
+                    <textarea
+                      className="form-input"
+                      placeholder={t('bookingMessage')}
+                      value={bookingMsg}
+                      onChange={e => setBookingMsg(e.target.value)}
+                      rows={4}
+                      style={{ marginBottom: 12 }}
+                    />
+                    < button
+                      className="btn btn-primary"
+                      style={{ width: '100%', justifyContent: 'center' }}
+                      onClick={handleBook}
+                      disabled={!bookingMsg.trim() || sending}
+                    >
+                      {sending ? '...' : t('submitBooking')}
+                    </button>
+                  </>
+                )
+              ) : (
+                /* CONTACT PANEL */
+                !firebaseUser ? (
+                  <div style={S.loginPrompt} >
+                    <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: 12 }}>
+                      Sign in to send a message to the owner.
+                    </p>
+                    < Link to={`/login?redirect=/property/${property.id}`} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', display: 'flex' }}>
+                      {t('signIn')}
+                    </Link>
+                  </div>
+                ) : sent ? (
+                  <div style={S.successBox} > {t('messageSent')} </div>
+                ) : (
+                  <>
+                    <textarea
+                      className="form-input"
+                      placeholder="Write a message..."
+                      value={contactMsg}
+                      onChange={e => setContactMsg(e.target.value)}
+                      rows={4}
+                      style={{ marginBottom: 12 }}
+                    />
+                    < button
+                      className="btn btn-secondary"
+                      style={{ width: '100%', justifyContent: 'center' }}
+                      onClick={handleContact}
+                      disabled={!contactMsg.trim() || sending}
+                    >
+                      {sending ? '...' : t('sendMessage')}
+                    </button>
+                  </>
+                )
+              )}
+          </>
+        ) : (
+          <div style={{ padding: '16px', background: 'var(--surface2)', borderRadius: 10, textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+            This property is currently occupied and not available for booking.
+          </div>
+        )}
 
       {/* Owner info */}
-      {owner && (
-        <div style={S.ownerRow}>
-          <div style={S.ownerAvatar}>{owner.name.charAt(0).toUpperCase()}</div>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-primary)' }}>{owner.name}</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Property Owner</div>
+      {
+        owner && (
+          <div style={S.ownerRow}>
+            <div style={S.ownerAvatar}> {owner.name.charAt(0).toUpperCase()} </div>
+            < div >
+              <div style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-primary)' }}> {owner.name} </div>
+              < div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }
+              }> Property Owner </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 
   return (
-    <div className="container page">
+    <div className="container page" >
       <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} style={{ marginBottom: 20 }}>
         {t('back')}
       </button>
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 360px', gap: 32, alignItems: 'start' }}>
-        {/* LEFT */}
+      < div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 340px', gap: 28, alignItems: 'start' }}>
+        {/* Left column */}
         <div>
-          <PropertyGallery images={property.images} title={property.title} />
+          {
+            property.images?.length > 0 && (
+              <PropertyGallery images={property.images} title={property.title} />
+            )
+          }
 
-          <div style={{ marginTop: 24 }}>
-            {/* Tags */}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-              {displayCategory && <span className="badge badge-gray">{displayCategory}</span>}
-              {displayType && <span className="badge badge-green">{displayType}</span>}
-              <span className={`badge ${isAvailable ? 'badge-green' : 'badge-amber'}`}>
-                {isAvailable ? t('available') : t('occupied')}
-              </span>
-            </div>
-
-            <h1 style={S.title}>{property.title}</h1>
-
-            <div style={S.locationRow}>
-              📍 {property.location}
-            </div>
-
-            {/* Price inline on mobile */}
-            {isMobile && (
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 16 }}>
-                <span style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--teal)' }}>${property.price.toLocaleString()}</span>
-                <span style={{ color: 'var(--text-muted)' }}>{t('perMonth')}</span>
+          <div className="card" style={{ padding: 28, marginTop: 20 }}>
+            {(displayCategory || displayType) && (
+              <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                {displayCategory && <span className="badge badge-teal" > {displayCategory} </span>}
+                {displayType && <span className="badge badge-outline" > {displayType} </span>}
               </div>
             )}
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', marginBottom: 8 }}>
+              {property.title}
+            </h1>
+            < p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.7 }}>
+              {property.description}
+            </p>
 
-            <hr className="divider" />
-
-            <h2 style={S.sectionTitle}>{t('about')}</h2>
-            <p style={S.desc}>{property.description}</p>
-
-            {property.amenities?.length > 0 && (
-              <>
-                <h2 style={{ ...S.sectionTitle, marginTop: 28 }}>{t('amenities')}</h2>
-                <div style={S.amenitiesGrid}>
-                  {property.amenities.map(a => (
-                    <div key={a} style={S.amenityItem}>
-                      <span style={{ color: 'var(--teal)' }}>✓</span> {a}
-                    </div>
-                  ))}
+            {
+              property.amenities?.length > 0 && (
+                <div style={{ marginTop: 24 }}>
+                  <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', marginBottom: 12 }}> {t('amenities')} </h3>
+                  < div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }
+                  }>
+                    {
+                      property.amenities.map(a => (
+                        <span key={a} className="badge badge-outline" > {a} </span>
+                      ))
+                    }
+                  </div>
                 </div>
-              </>
-            )}
-
-            {/* Action card below content on mobile */}
-            {isMobile && <div style={{ marginTop: 32 }}>{ActionCard}</div>}
+              )}
           </div>
         </div>
 
-        {/* RIGHT sidebar — desktop only */}
-        {!isMobile && <div>{ActionCard}</div>}
+        {/* Right column — sticky action card */}
+        {isMobile ? null : ActionCard}
       </div>
 
-      {/* Login prompt modal */}
-      {showLoginPrompt && (
-        <div style={S.modalOverlay} onClick={() => setShowLoginPrompt(false)}>
-          <div style={S.modal} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: '2rem', textAlign: 'center', marginBottom: 12 }}>🔑</div>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', textAlign: 'center', marginBottom: 8 }}>Sign in to book</h2>
-            <p style={{ color: 'var(--text-secondary)', textAlign: 'center', marginBottom: 24, fontSize: '0.9rem' }}>
-              Create a free account or sign in to send a booking request.
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <Link to={`/register?redirect=/property/${property.id}`} className="btn btn-primary" style={{ justifyContent: 'center' }}>
-                {t('getStarted')}
-              </Link>
-              <Link to={`/login?redirect=/property/${property.id}`} className="btn btn-ghost" style={{ justifyContent: 'center' }}>
-                {t('signIn')}
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Mobile action card (bottom) */}
+      {isMobile && <div style={{ marginTop: 20 }}> {ActionCard} </div>}
     </div>
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────
 const S: Record<string, React.CSSProperties> = {
-  title: { fontFamily: 'var(--font-display)', fontSize: 'clamp(1.6rem, 4vw, 2.2rem)', color: 'var(--text-primary)', lineHeight: 1.2, marginBottom: 10 },
-  locationRow: { display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)', fontSize: '0.92rem', marginBottom: 14 },
-  sectionTitle: { fontFamily: 'var(--font-display)', fontSize: '1.15rem', color: 'var(--text-primary)', marginBottom: 10 },
-  desc: { color: 'var(--text-secondary)', lineHeight: 1.8, fontSize: '0.97rem' },
-  amenitiesGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 },
-  amenityItem: { display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.88rem', color: 'var(--text-secondary)' },
-  panelToggle: { display: 'flex', gap: 4, background: 'var(--surface2)', borderRadius: 10, padding: 4, marginBottom: 16 },
-  panelBtn: { flex: 1, padding: '8px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'var(--font-body)', color: 'var(--text-secondary)', transition: 'all 0.15s', whiteSpace: 'nowrap' },
-  panelBtnActive: { background: '#fff', color: 'var(--teal)', fontWeight: 500, boxShadow: 'var(--shadow)' },
-  loginPrompt: { background: 'var(--surface2)', borderRadius: 12, padding: 20, textAlign: 'center' },
-  loginPromptIcon: { fontSize: '2rem', marginBottom: 8 },
-  successBox: { background: 'var(--teal-light)', color: 'var(--teal-dark)', padding: '16px', borderRadius: 10, textAlign: 'center', fontWeight: 500 },
-  ownerRow: { display: 'flex', alignItems: 'center', gap: 10, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' },
-  ownerAvatar: { width: 36, height: 36, borderRadius: '50%', background: 'var(--teal)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, flexShrink: 0 },
-  modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  modal: { background: '#fff', borderRadius: 20, padding: 32, width: '100%', maxWidth: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' },
+  panelToggle: {
+    display: 'flex', gap: 4, marginBottom: 16,
+    background: 'var(--surface2)', borderRadius: 10, padding: 4,
+  },
+  panelBtn: {
+    flex: 1, padding: '8px 4px', border: 'none', borderRadius: 8,
+    background: 'transparent', cursor: 'pointer', fontSize: '0.82rem',
+    fontWeight: 500, color: 'var(--text-secondary)', transition: 'all 0.15s',
+  },
+  panelBtnActive: {
+    background: 'var(--surface)', color: 'var(--text-primary)',
+    boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+  },
+  loginPrompt: {
+    background: 'var(--surface2)', borderRadius: 10,
+    padding: '20px 16px', textAlign: 'center',
+  },
+  loginPromptIcon: { fontSize: '2rem', marginBottom: 10 },
+  successBox: {
+    background: 'var(--teal-light)', borderRadius: 10, padding: '20px 16px',
+    textAlign: 'center', color: 'var(--teal)', fontWeight: 600, fontSize: '0.92rem',
+  },
+  ownerRow: {
+    display: 'flex', alignItems: 'center', gap: 12,
+    marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)',
+  },
+  ownerAvatar: {
+    width: 38, height: 38, borderRadius: '50%',
+    background: 'var(--teal-light)', color: 'var(--teal)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontWeight: 700, fontSize: '1rem',
+  },
 };

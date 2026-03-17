@@ -1,15 +1,47 @@
 // Uses EmailJS via CDN global (loaded in index.html)
-// Template fields: timestamp, to_name, message_preview, sender_name, email
+// Template variables expected: timestamp, to_name, message_preview, sender_name, email
 
 declare global {
   interface Window { emailjs: any; }
 }
 
-const SERVICE_ID = 'default_service';
-const TEMPLATE_ID = 'template_gk9ldps';
+const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID as string;
+const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID as string;
 const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY as string;
 
-// ─── Used by MessagesPage ────────────────────────────────────────────────
+// ── Template shape (must match your EmailJS template) ────────────────
+interface TemplateParams {
+  timestamp: string; // when the event happened
+  to_name: string; // recipient's display name
+  message_preview: string; // short subject / preview line
+  sender_name: string; // who triggered the notification
+  email: string; // recipient email address  ← the "To" field
+}
+
+// ── Core sender ───────────────────────────────────────────────────────
+const send = async (params: TemplateParams): Promise<void> => {
+  if (!window.emailjs) {
+    console.error('EmailJS CDN not loaded. Check index.html has the script tag.');
+    return;
+  }
+  if (!SERVICE_ID || !TEMPLATE_ID || !PUBLIC_KEY) {
+    console.error('EmailJS env vars missing (VITE_EMAILJS_SERVICE_ID / TEMPLATE_ID / PUBLIC_KEY).');
+    return;
+  }
+  try {
+    await window.emailjs.send(SERVICE_ID, TEMPLATE_ID, params, PUBLIC_KEY);
+  } catch (err: any) {
+    // fire-and-forget — log but never crash the UI
+    console.error('EmailJS send failed:', JSON.stringify(err));
+  }
+};
+
+const now = () =>
+  new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+
+// ── Public helpers ────────────────────────────────────────────────────
+
+/** New in-app message — notifies the other party (owner or tenant) */
 export const emailNewMessage = (params: {
   recipientEmail: string;
   recipientName: string;
@@ -17,43 +49,13 @@ export const emailNewMessage = (params: {
   propertyTitle: string;
   messageText: string;
 }) =>
-  sendEmail({
-    to_email: params.recipientEmail,
+  send({
+    timestamp: now(),
     to_name: params.recipientName,
-    from_name: params.senderName,
-    subject: `New message about "${params.propertyTitle}"`,
-    message: params.messageText,
+    message_preview: `New message about "${params.propertyTitle}": ${params.messageText.slice(0, 120)}`,
+    sender_name: params.senderName,
+    email: params.recipientEmail,
   });
-
-// ── Core sender ───────────────────────────────────────────────────────
-interface TemplateParams {
-  timestamp: string;   // when the event happened
-  to_name: string;   // recipient's display name
-  message_preview: string;   // short subject / preview line
-  sender_name: string;   // who is sending
-  email: string;   // recipient email address
-}
-
-const send = async (params: TemplateParams): Promise<void> => {
-  if (!window.emailjs) {
-    console.error('EmailJS CDN not loaded. Check index.html has the script tag.');
-    return;
-  }
-  try {
-    await window.emailjs.send(SERVICE_ID, TEMPLATE_ID, params, PUBLIC_KEY);
-  } catch (err: any) {
-    console.error('EmailJS send failed:', JSON.stringify(err));
-    // fire-and-forget — never crash the UI over an email
-  }
-};
-
-const now = () =>
-  new Date().toLocaleString('en-US', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-
-// ── Public helpers ────────────────────────────────────────────────────
 
 /** Tenant contacts owner from property detail page */
 export const notifyOwnerContact = (
