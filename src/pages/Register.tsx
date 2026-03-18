@@ -125,11 +125,9 @@ export default function Register() {
 function HexLogo() {
   return (
     <div style={{ textAlign: 'center', marginBottom: 24 }}>
-      <svg width="48" height="48" viewBox="0 0 28 28" fill="none" style={{ margin: '0 auto 8px' }}>
-        <rect x="4" y="23" width="24" height="2.5" rx="1.25" fill="#7A4A20" opacity="0.35" />
-        <path d="M4 22 L16 10 L28 22" stroke="#7A4A20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-        <path d="M7 22 L16 14 L25 22" stroke="#B06B30" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-        <path d="M10 22 L16 17 L22 22" stroke="#D4884A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+      <svg width="28" height="32" viewBox="0 0 28 32" fill="none">
+        <path d="M14 0L28 8V24L14 32L0 24V8L14 0Z" fill="var(--teal)" />
+        <path d="M14 6L22 11V21L14 26L6 21V11L14 6Z" fill="white" opacity="0.3" />
       </svg>
       <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', color: 'var(--teal-deeper)' }}>Terra</div>
     </div>

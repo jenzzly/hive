@@ -269,7 +269,7 @@ export default function Navbar() {
           {/* LEFT — Logo */}
           <Link to="/" style={S.logo}>
             <HexIcon />
-            <span style={S.logoText}>Terraviser</span>
+            <span style={S.logoText}>TerraViser</span>
           </Link>
 
           {/* CENTER — Desktop nav */}
