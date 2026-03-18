@@ -10,15 +10,12 @@ import Register from './pages/Register';
 import OwnerDashboard from './pages/OwnerDashboard';
 import TenantDashboard from './pages/TenantDashboard';
 import MaintenancePage from './pages/MaintenancePage';
-import ContractsPage from './pages/ContractsPage';
 import AdminDashboard from './pages/AdminDashboard';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import SettingsPage from './pages/SettingsPage';
 import OwnerAnalyticsPage from './pages/OwnerAnalyticsPage';
 import PlatformAnalyticsPage from './pages/PlatformAnalyticsPage';
 import MessagesPage from './pages/MessagesPage';
-import BookingsPage from './pages/BookingsPage';
-import FinancePage from './pages/FinancePage';
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const { userProfile, loading } = useAuth();
@@ -52,21 +49,6 @@ function AppRoutes() {
           <Route path="/analytics" element={
             <ProtectedRoute roles={['owner', 'admin', 'superAdmin']}>
               <OwnerAnalyticsPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/finance" element={
-            <ProtectedRoute roles={['owner', 'admin', 'superAdmin']}>
-              <FinancePage />
-            </ProtectedRoute>
-          } />
-          <Route path="/bookings" element={
-            <ProtectedRoute roles={['owner', 'admin', 'superAdmin']}>
-              <BookingsPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/contracts" element={
-            <ProtectedRoute roles={['tenant', 'owner', 'admin', 'superAdmin']}>
-              <ContractsPage />
             </ProtectedRoute>
           } />
           <Route path="/maintenance" element={
