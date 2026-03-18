@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getOwnerProperties, createProperty, updateProperty, deleteProperty } from '../services/propertyService';
-import { getOwnerContracts, createContract } from '../services/contractService';
+import { getOwnerContracts, createContract, deleteContract } from '../services/contractService';
 import { getOwnerRequests, updateMaintenanceRequest } from '../services/maintenanceService';
-import { getOwnerBookings, updateBookingStatus } from '../services/bookingService';
+import { getOwnerBookings, updateBookingStatus, deleteBooking } from '../services/bookingService';
 import { getOwnerPayments, updatePaymentStatus } from '../services/paymentService';
 import { getOwnerReimbursements, updateReimbursementStatus } from '../services/reimbursementService';
 import { getOrCreateConversation } from '../services/messageService';
@@ -371,6 +371,28 @@ export default function OwnerDashboard() {
     await load();
   };
 
+  const handleDeleteBooking = async (id: string) => {
+    if (!confirm('Delete this booking request? This cannot be undone.')) return;
+    try {
+      await deleteBooking(id);
+      show('Booking deleted.');
+      await load();
+    } catch (err: any) {
+      show(err.message || 'Failed to delete', 'error');
+    }
+  };
+
+  const handleDeleteContract = async (id: string) => {
+    if (!confirm('Delete this contract? This cannot be undone.')) return;
+    try {
+      await deleteContract(id);
+      show('Contract deleted.');
+      await load();
+    } catch (err: any) {
+      show(err.message || 'Failed to delete', 'error');
+    }
+  };
+
   const handleOpenChat = async (booking: BookingRequest) => {
     if (!userProfile) return;
     const prop = properties.find(p => p.id === booking.propertyId);
@@ -662,6 +684,13 @@ export default function OwnerDashboard() {
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Tenant: {allTenants.find(u => u.id === b.tenantId)?.name ?? b.tenantId.slice(0, 8)} · {new Date(b.createdAt).toLocaleDateString()}</div>
                   </div>
                   <BookingBadge status={b.status} />
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={() => handleDeleteBooking(b.id)}
+                    style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                  >
+                    🗑️
+                  </button>
                 </div>
                 {b.message && (
                   <div style={{ background: 'var(--stone-50)', borderRadius: 10, padding: '12px 14px', fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: 12 }}>
@@ -732,12 +761,24 @@ export default function OwnerDashboard() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {contracts.map(c => (
-              <ContractViewer
-                key={c.id}
-                contract={c}
-                propertyTitle={properties.find(p => p.id === c.propertyId)?.title}
-                tenantName={allTenants.find(u => u.id === c.tenantId)?.name}
-              />
+              <div key={c.id} className="card" style={{ padding: 20 }}>
+                <ContractViewer
+                  key={c.id}
+                  contract={c}
+                  propertyTitle={properties.find(p => p.id === c.propertyId)?.title}
+                  tenantName={allTenants.find(u => u.id === c.tenantId)?.name}
+                />
+                {c.contractDocumentURL && (
+                  <a href={c.contractDocumentURL} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
+                    📥 Download PDF
+                  </a>
+                )}
+                {userProfile.role !== 'tenant' && (
+                  <button className="btn btn-danger btn-sm" onClick={() => handleDeleteContract(c.id)}>
+                    🗑️ Delete
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         )

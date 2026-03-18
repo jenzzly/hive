@@ -127,79 +127,9 @@ firebase deploy --only firestore:indexes
 
 ---
 
-## Database Schema
+npm run build
+wrangler pages deploy dist --project-name=terrra
 
-### `users`
-| Field | Type | Description |
-|-------|------|-------------|
-| id | string | Firebase UID |
-| name | string | Full name |
-| email | string | Email address |
-| role | string | visitor / tenant / owner / admin |
-| createdAt | timestamp | Registration date |
-
-### `properties`
-| Field | Type | Description |
-|-------|------|-------------|
-| id | string | Auto-generated |
-| title | string | Property title |
-| description | string | Full description |
-| propertyType | string | apartment / house / studio / unit / garage / room / commercial |
-| price | number | Monthly rent in USD |
-| location | string | City, address |
-| amenities | array | List of amenity strings |
-| images | array | Cloudinary image URLs |
-| ownerId | string | Owner's user ID |
-| tenantId | string? | Assigned tenant's user ID |
-| status | string | available / occupied |
-| isPublic | boolean | Show on homepage |
-| createdAt | timestamp | Created date |
-
-### `contracts`
-| Field | Type | Description |
-|-------|------|-------------|
-| id | string | Auto-generated |
-| propertyId | string | Related property |
-| tenantId | string | Tenant user ID |
-| ownerId | string | Owner user ID |
-| rentAmount | number | Monthly rent |
-| startDate | string | ISO date string |
-| endDate | string | ISO date string |
-| contractDocumentURL | string? | Cloudinary PDF URL |
-| status | string | active / expired |
-| createdAt | timestamp | Created date |
-
-### `maintenanceRequests`
-| Field | Type | Description |
-|-------|------|-------------|
-| id | string | Auto-generated |
-| propertyId | string | Related property |
-| tenantId | string | Requesting tenant |
-| title | string | Issue title |
-| description | string | Detailed description |
-| images | array | Cloudinary image URLs |
-| priority | string | low / medium / high / urgent |
-| status | string | open / in_progress / resolved |
-| createdAt | timestamp | Created date |
-| resolvedAt | timestamp? | Resolution date |
-
----
-
-## Application Routes
-
-| Route | Access | Description |
-|-------|--------|-------------|
-| `/` | Public | Homepage with property listings |
-| `/property/:id` | Public | Property detail page |
-| `/login` | Public | Sign in |
-| `/register` | Public | Create account |
-| `/dashboard` | Owner/Admin | Property management |
-| `/admin` | Admin | Platform overview |
-| `/my-property` | Tenant | Tenant's property |
-| `/contracts` | Auth | View contracts |
-| `/maintenance` | Auth | Maintenance requests |
-
----
 
 ## User Roles
 

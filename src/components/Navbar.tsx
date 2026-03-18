@@ -1,31 +1,212 @@
-import { useState, useRef, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLang } from '../contexts/LanguageContext';
 import { logoutUser } from '../services/authService';
 import { subscribeToConversations } from '../services/messageService';
 import type { Conversation } from '../types';
 
+function HexIcon() {
+  return (
+    <svg width="28" height="32" viewBox="0 0 28 32" fill="none">
+      <path d="M14 0L28 8V24L14 32L0 24V8L14 0Z" fill="var(--teal)" />
+      <path d="M14 6L22 11V21L14 26L6 21V11L14 6Z" fill="white" opacity="0.3" />
+    </svg>
+  );
+}
+
+function AvatarMenu({ name, role, unreadMessages, onLogout, t }: {
+  name: string; role: string; unreadMessages: number; onLogout: () => void; t: (k: string) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button onClick={() => setOpen(o => !o)} style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '6px 12px 6px 6px', borderRadius: 24,
+        background: open ? 'var(--surface2)' : 'transparent',
+        border: '1.5px solid var(--border-strong)',
+        cursor: 'pointer', transition: 'all 0.15s',
+      }}>
+        <div style={{
+          width: 30, height: 30, borderRadius: '50%',
+          background: 'var(--teal)', color: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontWeight: 700, fontSize: '0.85rem', flexShrink: 0,
+        }}>
+          {name.charAt(0).toUpperCase()}
+        </div>
+        <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 500, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+        {unreadMessages > 0 && (
+          <span style={{ background: '#ef4444', color: '#fff', fontSize: '0.62rem', fontWeight: 700, padding: '1px 5px', borderRadius: 10 }}>
+            {unreadMessages}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', right: 0, top: 'calc(100% + 8px)',
+          background: '#fff', border: '1px solid var(--border)',
+          borderRadius: 12, boxShadow: 'var(--shadow-lg)',
+          minWidth: 180, zIndex: 200, overflow: 'hidden',
+        }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{name}</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'capitalize', marginTop: 2 }}>{role}</div>
+          </div>
+          {unreadMessages > 0 && (
+            <button onClick={() => { navigate('/messages'); setOpen(false); }} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              width: '100%', padding: '11px 16px', background: 'none',
+              border: 'none', cursor: 'pointer', fontSize: '0.9rem',
+              color: 'var(--text-primary)', fontFamily: 'var(--font-body)',
+            }}>
+              <span>💬 Messages</span>
+              <span style={{ background: '#ef4444', color: '#fff', fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: 10 }}>{unreadMessages}</span>
+            </button>
+          )}
+          <button onClick={() => { navigate('/settings'); setOpen(false); }} style={{
+            display: 'block', width: '100%', padding: '11px 16px', background: 'none',
+            border: 'none', cursor: 'pointer', fontSize: '0.9rem',
+            color: 'var(--text-primary)', textAlign: 'left', fontFamily: 'var(--font-body)',
+          }}>
+            ⚙️ {t('settings')}
+          </button>
+          <button onClick={onLogout} style={{
+            display: 'block', width: '100%', padding: '11px 16px', background: 'none',
+            borderTop: '1px solid var(--border)', cursor: 'pointer', fontSize: '0.9rem',
+            color: '#b91c1c', textAlign: 'left', fontFamily: 'var(--font-body)',
+          }}>
+            🚪 {t('signOut')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const S: Record<string, React.CSSProperties> = {
+  nav: {
+    position: 'sticky', top: 0, zIndex: 100,
+    background: 'rgba(247,253,251,0.92)',
+    backdropFilter: 'blur(12px)',
+    borderBottom: '1px solid var(--border)',
+    height: 'var(--nav-height)',
+  },
+  inner: {
+    maxWidth: 1200, margin: '0 auto', padding: '0 24px',
+    height: '100%', display: 'flex', alignItems: 'center',
+    gap: 24,
+  },
+  logo: {
+    display: 'flex', alignItems: 'center', gap: 8,
+    fontFamily: 'var(--font-display)', fontSize: '1.3rem', color: 'var(--text-primary)',
+    flexShrink: 0,
+  },
+  logoText: { color: 'var(--teal-dark)' },
+  centerLinks: {
+    display: 'flex', alignItems: 'center', gap: 2, flex: 1,
+  },
+  link: {
+    padding: '6px 12px', borderRadius: 8, fontSize: '0.9rem',
+    color: 'var(--text-secondary)', fontWeight: 400,
+    transition: 'all 0.15s', whiteSpace: 'nowrap',
+  },
+  linkActive: {
+    color: 'var(--teal)', background: 'var(--teal-light)',
+    fontWeight: 600,
+  },
+  rightSection: {
+    display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexShrink: 0,
+  },
+  rightLinks: {
+    display: 'flex', alignItems: 'center', gap: 2,
+  },
+  rightLink: {
+    padding: '6px 12px', borderRadius: 8, fontSize: '0.9rem',
+    color: 'var(--text-secondary)', fontWeight: 400,
+    transition: 'all 0.15s', whiteSpace: 'nowrap',
+  },
+  rightLinkActive: {
+    color: 'var(--teal)', background: 'var(--teal-light)',
+    fontWeight: 600,
+  },
+  burger: {
+    display: 'flex', flexDirection: 'column', gap: 5,
+    background: 'none', padding: 8, marginLeft: 8, cursor: 'pointer',
+  },
+  bar: {
+    width: 22, height: 2, background: 'var(--text-primary)',
+    borderRadius: 2, transition: 'all 0.25s',
+    display: 'block',
+  },
+  overlay: {
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)',
+    zIndex: 150, backdropFilter: 'blur(2px)',
+  },
+  drawer: {
+    position: 'fixed', top: 0, right: 0, bottom: 0, width: 280,
+    background: '#fff', zIndex: 200,
+    boxShadow: '-4px 0 24px rgba(0,0,0,0.12)',
+    transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1)',
+    display: 'flex', flexDirection: 'column', overflowY: 'auto',
+  },
+  drawerUser: {
+    display: 'flex', alignItems: 'center', gap: 12,
+    padding: '24px 20px 16px',
+    borderBottom: '1px solid var(--border)',
+  },
+  drawerAvatar: {
+    width: 40, height: 40, borderRadius: '50%',
+    background: 'var(--teal)', color: '#fff',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontWeight: 700, fontSize: '1rem', flexShrink: 0,
+  },
+  drawerLinks: { padding: '12px 12px', flex: 1 },
+  drawerLink: {
+    display: 'block', padding: '11px 12px', borderRadius: 8,
+    fontSize: '0.95rem', color: 'var(--text-secondary)',
+    transition: 'all 0.15s', marginBottom: 2,
+  },
+  drawerLinkActive: {
+    color: 'var(--teal)', background: 'var(--teal-light)',
+    fontWeight: 600,
+  },
+  drawerFooter: {
+    padding: '16px 12px 20px',
+    borderTop: '1px solid var(--border)',
+    display: 'flex', flexDirection: 'column', gap: 8,
+  },
+};
+
 export default function Navbar() {
   const { userProfile } = useAuth();
   const { t } = useLang();
-  const location = useLocation();
   const navigate = useNavigate();
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [unreadMessages, setUnreadMessages] = useState(0);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 900);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
   const drawerRef = useRef<HTMLDivElement>(null);
+  const [unreadMessages, setUnreadMessages] = useState(0);
 
   useEffect(() => {
-    const h = () => setIsMobile(window.innerWidth < 900);
+    const h = () => setIsMobile(window.innerWidth <= 900);
     window.addEventListener('resize', h);
     return () => window.removeEventListener('resize', h);
   }, []);
 
   useEffect(() => {
-    if (!userProfile) return;
-    const role = userProfile.role === 'owner' || userProfile.role === 'admin' || userProfile.role === 'superAdmin'
-      ? 'owner' : 'tenant';
+    if (!userProfile || (userProfile.role !== 'owner' && userProfile.role !== 'tenant' && userProfile.role !== 'admin' && userProfile.role !== 'superAdmin')) return;
+    const role = userProfile.role === 'tenant' ? 'tenant' : 'owner';
     const unsub = subscribeToConversations(userProfile.id, role, (convs: Conversation[]) => {
       const total = convs.reduce((sum: number, c: Conversation) =>
         sum + (role === 'owner' ? c.unreadOwner : c.unreadTenant), 0);
@@ -45,73 +226,87 @@ export default function Navbar() {
   const isActive = (path: string) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
 
-  const roleLinks = () => {
+  // Main nav links (left/center area)
+  const mainLinks = () => {
     const r = userProfile?.role;
     if (r === 'superAdmin') return [
-      { to: '/super-admin', label: t('superAdmin') },
-      { to: '/dashboard', label: t('dashboard') },
-      { to: '/platform-analytics', label: 'Analytics' },
+      { to: '/super-admin', label: '👑 ' + t('superAdmin') },
+      { to: '/dashboard', label: '🏠 ' + t('dashboard') },
+      { to: '/platform-analytics', label: '📊 Analytics' },
     ];
     if (r === 'admin') return [
-      { to: '/admin', label: t('admin') },
-      { to: '/dashboard', label: t('dashboard') },
-      { to: '/platform-analytics', label: 'Analytics' },
+      { to: '/admin', label: '🛡️ ' + t('admin') },
+      { to: '/dashboard', label: '🏠 ' + t('dashboard') },
+      { to: '/platform-analytics', label: '📊 Analytics' },
     ];
     if (r === 'owner') return [
-      { to: '/dashboard', label: t('dashboard') },
-      { to: '/analytics', label: 'Analytics' },
-      { to: '/contracts', label: t('contracts') },
-      { to: '/maintenance', label: t('maintenance') },
+      { to: '/dashboard', label: '🏠 ' + t('dashboard') },
+      { to: '/analytics', label: '📊 Analytics' },
     ];
     if (r === 'tenant') return [
-      { to: '/my-property', label: t('myProperty') },
-      { to: '/contracts', label: t('contracts') },
-      { to: '/maintenance', label: t('maintenance') },
+      { to: '/my-rent', label: '🏠 My Rent' },
+      { to: '/maintenance', label: '🔧 ' + t('maintenance') },
     ];
     return [];
   };
 
-  const allLinks = [{ to: '/', label: t('browse'), unread: 0 }, ...roleLinks()];
+  // Right-side quick action links for owner (contracts + properties)
+  const rightActionLinks = () => {
+    const r = userProfile?.role;
+    if (r === 'owner' || r === 'tenant' || r === 'superAdmin') return [
+      { to: '/messages', label: '📄 ' + t('messages') },
+    ];
+    return []
+  };
+
+  const centerLinks = [{ to: '/', label: '', unread: 0 }, ...mainLinks().map(l => ({ ...l, unread: 0 }))];
+  const rLinks = rightActionLinks();
 
   return (
     <>
       <nav style={S.nav}>
         <div style={S.inner}>
-
-          {/* ── Logo ── */}
+          {/* LEFT — Logo */}
           <Link to="/" style={S.logo}>
-            <TerrraLogo />
-            <span style={S.logoText}>
-              Terr<span style={{ color: 'var(--terra-500)' }}>ra</span>
-            </span>
+            <HexIcon />
+            <span style={S.logoText}>Terraviser</span>
           </Link>
 
-          {/* ── Desktop nav links ── */}
+          {/* CENTER — Desktop nav */}
           {!isMobile && (
-            <div style={S.centerLinks}>
-              {allLinks.map(l => (
+            <div style={S.rightSection}>
+              {centerLinks.map(l => (
                 <Link key={l.to} to={l.to}
                   style={{ ...S.link, ...(isActive(l.to) ? S.linkActive : {}), display: 'flex', alignItems: 'center', gap: 5 }}>
                   {l.label}
                   {(l.unread ?? 0) > 0 && (
-                    <span style={S.unreadDot}>{l.unread}</span>
+                    <span style={{ background: '#ef4444', color: '#fff', fontSize: '0.62rem', fontWeight: 700, padding: '1px 5px', borderRadius: 10 }}>
+                      {l.unread}
+                    </span>
                   )}
                 </Link>
               ))}
             </div>
           )}
 
-          {/* ── Right section ── */}
+          {/* RIGHT — Contracts + Auth */}
           <div style={S.rightSection}>
+            {!isMobile && rLinks.length > 0 && (
+              <div style={S.rightLinks}>
+                {rLinks.map(l => (
+                  <Link key={l.to} to={l.to}
+                    style={{ ...S.rightLink, ...(isActive(l.to) ? S.rightLinkActive : {}) }}>
+                    {l.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+
             {!isMobile && (
               userProfile ? (
-                <AvatarMenu
-                  name={userProfile.name}
-                  role={userProfile.role}
-                  unreadMessages={unreadMessages}
-                  onLogout={handleLogout}
-                  t={t}
-                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <AvatarMenu name={userProfile.name} role={userProfile.role} unreadMessages={unreadMessages} onLogout={handleLogout} t={t} />
+                </div>
               ) : (
                 <div style={{ display: 'flex', gap: 8 }}>
                   <Link to="/login" className="btn btn-ghost btn-sm">{t('signIn')}</Link>
@@ -128,16 +323,11 @@ export default function Navbar() {
               </button>
             )}
           </div>
-
         </div>
       </nav>
 
-      {/* ── Mobile overlay ── */}
-      {isMobile && menuOpen && (
-        <div style={S.overlay} onClick={() => setMenuOpen(false)} />
-      )}
+      {isMobile && menuOpen && <div style={S.overlay} onClick={() => setMenuOpen(false)} />}
 
-      {/* ── Mobile drawer ── */}
       {isMobile && (
         <div ref={drawerRef} style={{ ...S.drawer, transform: menuOpen ? 'translateX(0)' : 'translateX(100%)' }}>
           {userProfile && (
@@ -145,51 +335,43 @@ export default function Navbar() {
               <div style={S.drawerAvatar}>{userProfile.name.charAt(0).toUpperCase()}</div>
               <div>
                 <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{userProfile.name}</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'capitalize', marginTop: 2 }}>{userProfile.role}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'capitalize', marginTop: 2 }}>{userProfile.role}</div>
               </div>
             </div>
           )}
 
           <div style={S.drawerLinks}>
-            {allLinks.map(l => (
+            {[...centerLinks, ...rLinks].map(l => (
               <Link key={l.to} to={l.to}
                 style={{ ...S.drawerLink, ...(isActive(l.to) ? S.drawerLinkActive : {}), display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
                 onClick={() => setMenuOpen(false)}>
                 <span>{l.label}</span>
-                {(l.unread ?? 0) > 0 && (
-                  <span style={S.unreadDot}>{l.unread}</span>
+                {((l as any).unread ?? 0) > 0 && (
+                  <span style={{ background: '#ef4444', color: '#fff', fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: 10 }}>
+                    {(l as any).unread}
+                  </span>
                 )}
               </Link>
             ))}
-
-            {userProfile && (
-              <>
-                <Link to="/messages"
-                  style={{ ...S.drawerLink, ...(isActive('/messages') ? S.drawerLinkActive : {}), display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-                  onClick={() => setMenuOpen(false)}>
-                  <span>Messages</span>
-                  {unreadMessages > 0 && <span style={S.unreadDot}>{unreadMessages}</span>}
-                </Link>
-                <Link to="/settings"
-                  style={{ ...S.drawerLink, ...(isActive('/settings') ? S.drawerLinkActive : {}) }}
-                  onClick={() => setMenuOpen(false)}>
-                  {t('settings')}
-                </Link>
-              </>
+            {unreadMessages > 0 && (
+              <Link to="/messages" style={{ ...S.drawerLink, ...(isActive('/messages') ? S.drawerLinkActive : {}), display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} onClick={() => setMenuOpen(false)}>
+                <span>💬 Messages</span>
+                <span style={{ background: '#ef4444', color: '#fff', fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: 10 }}>{unreadMessages}</span>
+              </Link>
             )}
           </div>
 
           <div style={S.drawerFooter}>
             {userProfile ? (
-              <button onClick={() => { setMenuOpen(false); handleLogout(); }}
-                style={{ width: '100%', padding: '12px 14px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', color: 'var(--error)', fontFamily: 'var(--font-body)', borderRadius: 10 }}>
-                {t('signOut')}
-              </button>
+              <>
+                <Link to="/settings" className="btn btn-ghost" style={{ justifyContent: 'center', fontSize: '0.9rem' }} onClick={() => setMenuOpen(false)}>⚙️ {t('settings')}</Link>
+                <button className="btn btn-danger" style={{ justifyContent: 'center', fontSize: '0.9rem' }} onClick={handleLogout}>🚪 {t('signOut')}</button>
+              </>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <Link to="/login" className="btn btn-ghost" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setMenuOpen(false)}>{t('signIn')}</Link>
-                <Link to="/register" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setMenuOpen(false)}>{t('getStarted')}</Link>
-              </div>
+              <>
+                <Link to="/login" className="btn btn-ghost" style={{ justifyContent: 'center' }} onClick={() => setMenuOpen(false)}>{t('signIn')}</Link>
+                <Link to="/register" className="btn btn-primary" style={{ justifyContent: 'center' }} onClick={() => setMenuOpen(false)}>{t('getStarted')}</Link>
+              </>
             )}
           </div>
         </div>
@@ -197,189 +379,3 @@ export default function Navbar() {
     </>
   );
 }
-
-/* ── Avatar dropdown ──────────────────────────────────────────────────── */
-function AvatarMenu({ name, role, unreadMessages, onLogout, t }: {
-  name: string;
-  role: string;
-  unreadMessages: number;
-  onLogout: () => void;
-  t: (k: any) => string;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={S.avatar}
-        title={name}
-      >
-        {name.charAt(0).toUpperCase()}
-        {unreadMessages > 0 && (
-          <span style={{ position: 'absolute', top: -3, right: -3, background: '#ef4444', color: '#fff', fontSize: '0.55rem', fontWeight: 700, padding: '1px 4px', borderRadius: 8, lineHeight: 1.4 }}>
-            {unreadMessages}
-          </span>
-        )}
-      </button>
-
-      {open && (
-        <div style={S.dropdown}>
-          <div style={{ padding: '10px 16px 8px', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-primary)' }}>{name}</div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'capitalize', marginTop: 1 }}>{role}</div>
-          </div>
-          <Link to="/messages" onClick={() => setOpen(false)}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 16px', fontSize: '0.88rem', color: 'var(--text-secondary)', textDecoration: 'none' }}>
-            <span>Messages</span>
-            {unreadMessages > 0 && <span style={S.unreadDot}>{unreadMessages}</span>}
-          </Link>
-          <Link to="/settings" onClick={() => setOpen(false)}
-            style={{ display: 'block', padding: '9px 16px', fontSize: '0.88rem', color: 'var(--text-secondary)', textDecoration: 'none' }}>
-            {t('settings')}
-          </Link>
-          <div style={{ borderTop: '1px solid var(--border)', marginTop: 4 }}>
-            <button onClick={() => { setOpen(false); onLogout(); }}
-              style={{ width: '100%', padding: '9px 16px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.88rem', color: 'var(--error)', fontFamily: 'var(--font-body)' }}>
-              {t('signOut')}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── Terrra logo mark: three terrain elevation lines ──────────────────── */
-export function TerrraLogo({ size = 30 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Ground bar */}
-      <rect x="4" y="23" width="24" height="2.5" rx="1.25" fill="#7A4A20" opacity="0.3" />
-      {/* Outer peak — darkest */}
-      <path d="M4 22 L16 10 L28 22" stroke="#7A4A20" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      {/* Mid layer */}
-      <path d="M7 22 L16 14 L25 22" stroke="#B06B30" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      {/* Inner peak — lightest */}
-      <path d="M10 22 L16 17 L22 22" stroke="#D4884A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-    </svg>
-  );
-}
-
-/* ── Styles ───────────────────────────────────────────────────────────── */
-const S: Record<string, React.CSSProperties> = {
-  nav: {
-    position: 'sticky', top: 0, zIndex: 200,
-    background: 'rgba(253,250,246,0.95)',
-    backdropFilter: 'blur(14px)',
-    borderBottom: '1px solid var(--sand-200, #EDD5A8)',
-    height: 'var(--nav-height)',
-  },
-  inner: {
-    maxWidth: 1200, margin: '0 auto', padding: '0 20px',
-    height: '100%',
-    display: 'grid',
-    gridTemplateColumns: 'auto 1fr auto',
-    alignItems: 'center', gap: 16,
-  },
-  logo: { display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' },
-  logoText: {
-    fontFamily: 'var(--font-display)',
-    fontSize: '1.45rem',
-    fontWeight: 500,
-    color: 'var(--terra-800)',
-    letterSpacing: '-0.5px',
-    lineHeight: 1,
-  },
-  centerLinks: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 },
-  rightSection: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 },
-  link: {
-    padding: '6px 12px', borderRadius: 8,
-    fontSize: '0.87rem', fontWeight: 400,
-    color: 'var(--text-secondary)',
-    transition: 'all 0.15s', whiteSpace: 'nowrap',
-  },
-  linkActive: {
-    color: 'var(--terra-700)',
-    background: 'var(--terra-100)',
-    fontWeight: 500,
-  },
-  unreadDot: {
-    background: '#ef4444', color: '#fff',
-    fontSize: '0.58rem', fontWeight: 700,
-    padding: '1px 5px', borderRadius: 10,
-  },
-  avatar: {
-    position: 'relative',
-    width: 36, height: 36, borderRadius: '50%',
-    background: 'var(--terra-600)', color: '#fff',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer',
-    border: 'none', fontFamily: 'var(--font-body)',
-    transition: 'background 0.15s',
-  },
-  dropdown: {
-    position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-    background: '#fff',
-    border: '1px solid var(--border)',
-    borderRadius: 12, boxShadow: 'var(--shadow-lg)',
-    padding: '4px 0', minWidth: 196, zIndex: 300,
-  },
-  burger: {
-    background: 'none', border: 'none', cursor: 'pointer',
-    padding: 8, display: 'flex', flexDirection: 'column', gap: 5,
-  },
-  bar: {
-    display: 'block', width: 22, height: 2,
-    background: 'var(--terra-700)', borderRadius: 2,
-    transition: 'transform 0.25s, opacity 0.2s',
-  },
-  overlay: {
-    position: 'fixed', inset: 0,
-    background: 'rgba(28,18,9,0.45)',
-    zIndex: 198, backdropFilter: 'blur(2px)',
-  },
-  drawer: {
-    position: 'fixed', top: 'var(--nav-height)', right: 0, bottom: 0,
-    width: 'min(300px, 82vw)',
-    background: '#fff', zIndex: 199,
-    boxShadow: '-4px 0 40px rgba(28,18,9,0.14)',
-    transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
-    display: 'flex', flexDirection: 'column', padding: 20, gap: 8,
-  },
-  drawerUser: {
-    display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8,
-    padding: '12px 14px',
-    background: 'var(--terra-50, #FDFAF6)',
-    borderRadius: 12,
-    border: '1px solid var(--border)',
-  },
-  drawerAvatar: {
-    width: 40, height: 40, borderRadius: '50%',
-    background: 'var(--terra-600)', color: '#fff',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontWeight: 600, fontSize: '1rem', flexShrink: 0,
-  },
-  drawerLinks: { flex: 1, overflowY: 'auto' as const },
-  drawerLink: {
-    display: 'block', padding: '12px 14px', borderRadius: 10,
-    fontSize: '0.95rem', color: 'var(--text-secondary)',
-    transition: 'background 0.15s', marginBottom: 2,
-    textDecoration: 'none',
-  },
-  drawerLinkActive: {
-    background: 'var(--terra-100)',
-    color: 'var(--terra-700)',
-    fontWeight: 500,
-  },
-  drawerFooter: { paddingTop: 16, borderTop: '1px solid var(--border)' },
-};

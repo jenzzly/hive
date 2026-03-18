@@ -1,123 +1,188 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getTenantContracts, getOwnerContracts } from '../services/contractService';
+import { getTenantContracts, getOwnerContracts, deleteContract } from '../services/contractService';
 import { getOwnerProperties } from '../services/propertyService';
-import { getAllUsers } from '../services/userService';
+import { getUserById } from '../services/userService';
 import ContractViewer from '../components/ContractViewer';
-import type { Contract, Property, User } from '../types';
+import { useToast } from '../hooks/useToast';
+import type { Contract, Property } from '../types';
+
+interface TenantInfo {
+  name: string;
+  email: string;
+  phone?: string;
+}
 
 export default function ContractsPage() {
   const { userProfile } = useAuth();
+  const { show, ToastContainer } = useToast();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
-  const [tenants, setTenants] = useState<User[]>([]);
+  const [tenantInfoMap, setTenantInfoMap] = useState<Record<string, TenantInfo>>({});
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'active' | 'expired'>('all');
+  const [currencyFilter, setCurrencyFilter] = useState<'all' | 'USD' | 'RWF'>('all');
 
-  useEffect(() => {
+  const load = async () => {
     if (!userProfile) return;
-    (async () => {
-      if (userProfile.role === 'tenant') {
-        setContracts(await getTenantContracts(userProfile.id));
-      } else {
-        // owner / admin — load contracts, matching properties, and all tenants for name resolution
-        const [ctrs, props, users] = await Promise.all([
-          getOwnerContracts(userProfile.id),
-          getOwnerProperties(userProfile.id),
-          getAllUsers(),
-        ]);
-        setContracts(ctrs);
-        setProperties(props);
-        setTenants(users.filter(u => u.role === 'tenant'));
-      }
-      setLoading(false);
-    })();
-  }, [userProfile]);
+    setLoading(true);
+    if (userProfile.role === 'tenant') {
+      const ctrs = await getTenantContracts(userProfile.id);
+      setContracts(ctrs);
+    } else {
+      const [ctrs, props] = await Promise.all([
+        getOwnerContracts(userProfile.id),
+        getOwnerProperties(userProfile.id),
+      ]);
+      setContracts(ctrs);
+      setProperties(props);
+      // Load tenant info for each contract
+      const infoMap: Record<string, TenantInfo> = {};
+      await Promise.all(ctrs.map(async c => {
+        try {
+          const u = await getUserById(c.tenantId);
+          if (u) infoMap[c.tenantId] = { name: u.name, email: u.email, phone: (u as any).phone };
+        } catch { /* ignore */ }
+      }));
+      setTenantInfoMap(infoMap);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [userProfile]);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this contract? This cannot be undone.')) return;
+    try {
+      await deleteContract(id);
+      show('Contract deleted.');
+      await load();
+    } catch (err: any) {
+      show(err.message || 'Failed to delete', 'error');
+    }
+  };
 
   if (!userProfile) return null;
 
-  const filtered = filter === 'all' ? contracts : contracts.filter(c => c.status === filter);
-  const active = contracts.filter(c => c.status === 'active').length;
-  const expired = contracts.filter(c => c.status === 'expired').length;
+  const USD_RATE = 1300; // approximate RWF per USD
+  const filteredContracts = contracts.filter(c => {
+    if (currencyFilter === 'all') return true;
+    const currency = (c as any).currency || 'USD';
+    return currency === currencyFilter;
+  });
+
+  const formatMoney = (amount: number, currency = 'USD') => {
+    if (currency === 'RWF') return `RWF ${amount.toLocaleString()}`;
+    return `$${amount.toLocaleString()} USD`;
+  };
 
   return (
     <div className="container page">
-      {/* ── Header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
+      <ToastContainer />
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 className="page-title">Contracts</h1>
+          <h1 className="page-title">📄 Contracts</h1>
           <p className="page-subtitle">
             {userProfile.role === 'tenant' ? 'Your rental agreements' : 'All tenant contracts'}
           </p>
         </div>
-
-        {/* Summary chips */}
-        {contracts.length > 0 && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            {active > 0 && (
-              <span style={{ fontSize: '0.78rem', fontWeight: 600, padding: '5px 14px', borderRadius: 20, background: 'var(--sage-100)', color: 'var(--sage-700)', border: '1px solid var(--sage-200)' }}>
-                {active} active
-              </span>
-            )}
-            {expired > 0 && (
-              <span style={{ fontSize: '0.78rem', fontWeight: 600, padding: '5px 14px', borderRadius: 20, background: 'var(--stone-100)', color: 'var(--stone-500)' }}>
-                {expired} expired
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ── Filter tabs ── */}
-      {contracts.length > 1 && (
-        <div style={{ display: 'flex', gap: 4, background: 'var(--surface2)', borderRadius: 12, padding: 4, marginBottom: 24, width: 'fit-content' }}>
-          {(['all', 'active', 'expired'] as const).map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              style={{
-                padding: '7px 18px', borderRadius: 9, border: 'none', cursor: 'pointer',
-                fontSize: '0.85rem', fontFamily: 'var(--font-body)',
-                background: filter === f ? '#fff' : 'transparent',
-                color: filter === f ? 'var(--terra-700)' : 'var(--text-secondary)',
-                fontWeight: filter === f ? 600 : 400,
-                boxShadow: filter === f ? 'var(--shadow)' : 'none',
-                textTransform: 'capitalize',
-              }}>
-              {f}
+        <div className="currency-filter">
+          {(['all', 'USD', 'RWF'] as const).map(c => (
+            <button key={c} className={currencyFilter === c ? 'active' : ''} onClick={() => setCurrencyFilter(c)}>
+              {c === 'all' ? 'All' : c}
             </button>
           ))}
         </div>
-      )}
+      </div>
 
-      {/* ── Content ── */}
       {loading ? (
         <div className="loading-center"><div className="spinner" /></div>
-      ) : filtered.length === 0 ? (
+      ) : filteredContracts.length === 0 ? (
         <div className="empty-state">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--terra-300)" strokeWidth="1.2" style={{ margin: '0 auto 16px' }}>
-            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="16" y1="13" x2="8" y2="13" />
-            <line x1="16" y1="17" x2="8" y2="17" />
-          </svg>
-          <h3>{filter === 'all' ? 'No contracts yet' : `No ${filter} contracts`}</h3>
-          <p style={{ marginTop: 6, fontSize: '0.88rem' }}>
-            {userProfile.role === 'owner'
-              ? 'Create a contract from your dashboard when a booking is approved.'
-              : 'No contracts have been assigned to you yet.'}
-          </p>
+          <h3>No contracts found</h3>
+          <p>{userProfile.role === 'owner' ? 'Create a contract from the Dashboard.' : 'No contracts have been assigned to you yet.'}</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 800 }}>
-          {filtered.map(c => {
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 800 }}>
+          {filteredContracts.map(c => {
             const prop = properties.find(p => p.id === c.propertyId);
-            const tenant = tenants.find(u => u.id === c.tenantId);
+            const tenant = tenantInfoMap[c.tenantId];
+            const currency = (c as any).currency || 'USD';
+            const startDate = new Date(c.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+            const endDate = new Date(c.endDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+            const isActive = c.status === 'active';
+
             return (
-              <ContractViewer
-                key={c.id}
-                contract={c}
-                propertyTitle={prop?.title}
-                tenantName={tenant?.name}
-              />
+              <div key={c.id} className="card" style={{ padding: 24 }}>
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.15rem', marginBottom: 4 }}>
+                      {prop?.title || 'Property'}
+                    </div>
+                    <div style={{ fontSize: '0.83rem', color: 'var(--text-muted)' }}>
+                      ID: <span style={{ fontFamily: 'monospace' }}>{c.id.slice(0, 8)}…</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <span className={`badge ${isActive ? 'badge-green' : 'badge-gray'}`}>
+                      {isActive ? '● Active' : 'Expired'}
+                    </span>
+                    <span className="badge badge-blue">{currency}</span>
+                  </div>
+                </div>
+
+                {/* Info grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 16 }}>
+                  {/* Tenant info - only for owner */}
+                  {userProfile.role !== 'tenant' && tenant && (
+                    <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Tenant</div>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: 2 }}>👤 {tenant.name}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>✉️ {tenant.email}</div>
+                      {tenant.phone && <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: 2 }}>📞 {tenant.phone}</div>}
+                    </div>
+                  )}
+
+                  {/* Dates */}
+                  <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: '12px 14px' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Duration</div>
+                    <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: 2 }}>📅 Start: <strong>{startDate}</strong></div>
+                    <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>📅 End: <strong>{endDate}</strong></div>
+                  </div>
+
+                  {/* Rent */}
+                  <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: '12px 14px' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Monthly Rent</div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', color: 'var(--teal)' }}>
+                      {formatMoney(c.rentAmount, currency)}
+                    </div>
+                    {currency === 'USD' && (
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                        ≈ RWF {(c.rentAmount * USD_RATE).toLocaleString()}
+                      </div>
+                    )}
+                    {currency === 'RWF' && (
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                        ≈ ${(c.rentAmount / USD_RATE).toFixed(0)} USD
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {c.contractDocumentURL && (
+                    <a href={c.contractDocumentURL} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
+                      📥 Download PDF
+                    </a>
+                  )}
+                  {userProfile.role !== 'tenant' && (
+                    <button className="btn btn-danger btn-sm" onClick={() => handleDelete(c.id)}>
+                      🗑️ Delete
+                    </button>
+                  )}
+                </div>
+              </div>
             );
           })}
         </div>

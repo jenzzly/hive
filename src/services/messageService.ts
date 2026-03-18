@@ -1,7 +1,7 @@
 import {
   collection, doc, addDoc, updateDoc, deleteDoc, increment,
   query, where, orderBy, onSnapshot, serverTimestamp,
-  getDoc, setDoc,
+  getDoc, setDoc, getDocs
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Conversation, Message } from '../types';
@@ -66,13 +66,19 @@ export const sendMessage = async (
   });
 };
 
-// ─── Soft-delete a message (replaces text, marks deleted) ───────────────
-export const deleteMessage = async (messageId: string): Promise<void> => {
-  await updateDoc(doc(db, MSGS, messageId), {
-    deleted: true,
-    text: '',          // clear the content
-    deletedAt: serverTimestamp(),
-  });
+// ─── Delete a single message ─────────────────────────────────────────────
+export const deleteMessage = async (id: string): Promise<void> => {
+  await deleteDoc(doc(db, MSGS, id));
+};
+
+// ─── Delete a conversation and all its messages ──────────────────────────
+export const deleteConversation = async (convId: string): Promise<void> => {
+  // Delete all messages in this conversation first
+  const q = query(collection(db, MSGS), where('conversationId', '==', convId));
+  const snap = await getDocs(q);
+  await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
+  // Delete the conversation document itself
+  await deleteDoc(doc(db, CONVS, convId));
 };
 
 // ─── Archive / unarchive a conversation for one party ───────────────────

@@ -3,6 +3,7 @@ import {
   doc,
   addDoc,
   updateDoc,
+  deleteDoc,
   getDocs,
   query,
   where,
@@ -29,6 +30,10 @@ export const updateContract = async (
   data: Partial<Contract>
 ): Promise<void> => {
   await updateDoc(doc(db, COL, id), data);
+};
+
+export const deleteContract = async (id: string): Promise<void> => {
+  await deleteDoc(doc(db, COL, id));
 };
 
 export const getTenantContracts = async (tenantId: string): Promise<Contract[]> => {

@@ -1,6 +1,14 @@
 import {
-  collection, doc, addDoc, updateDoc, getDocs,
-  query, where, orderBy, serverTimestamp,
+  collection,
+  doc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { BookingRequest, BookingStatus } from '../types';
@@ -20,6 +28,10 @@ export const createBookingRequest = async (
 
 export const updateBookingStatus = async (id: string, status: BookingStatus): Promise<void> => {
   await updateDoc(doc(db, COL, id), { status });
+};
+
+export const deleteBooking = async (id: string): Promise<void> => {
+  await deleteDoc(doc(db, COL, id));
 };
 
 export const getTenantBookings = async (tenantId: string): Promise<BookingRequest[]> => {
