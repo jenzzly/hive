@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useLang } from '../contexts/LanguageContext';
-import type { Property } from '../types';
+import type { Property, Currency } from '../types';
 
 interface Props {
   property: Property;
@@ -10,11 +10,17 @@ interface Props {
   onTogglePublic?: (p: Property) => void;
 }
 
+function formatPrice(price: number, currency: Currency = 'USD') {
+  if (currency === 'RWF') return `${price.toLocaleString()} RWF`;
+  return `$${price.toLocaleString()}`;
+}
+
 export default function PropertyCard({ property, showActions, onEdit, onDelete, onTogglePublic }: Props) {
   const { t } = useLang();
   const image = property.images?.[0] ?? '';
   const displayType = (property as any).subcategory || (property as any).type || (property as any).propertyType || '';
   const isAvailable = property.status === 'available';
+  const currency: Currency = (property as any).currency ?? 'USD';
 
   return (
     <div style={S.card}>
@@ -25,7 +31,7 @@ export default function PropertyCard({ property, showActions, onEdit, onDelete, 
           : <div style={S.imgPlaceholder}><HouseIcon /></div>
         }
         {displayType && <div style={S.typePill}>{displayType}</div>}
-        <div style={{ ...S.statusDot, background: isAvailable ? '#1D9E75' : '#f59e0b' }} />
+        <div style={{ ...S.statusDot, background: isAvailable ? 'var(--sage-500)' : '#f59e0b' }} />
       </Link>
 
       {/* Body */}
@@ -34,7 +40,11 @@ export default function PropertyCard({ property, showActions, onEdit, onDelete, 
           <span style={S.locationText}>
             <PinIcon /> {property.location}
           </span>
-          <span style={{ ...S.statusBadge, background: isAvailable ? 'var(--teal-light)' : '#fef3c7', color: isAvailable ? 'var(--teal-dark)' : '#92400e' }}>
+          <span style={{
+            ...S.statusBadge,
+            background: isAvailable ? 'var(--sage-100)' : '#fef3c7',
+            color: isAvailable ? 'var(--sage-700)' : '#92400e',
+          }}>
             {isAvailable ? t('available') : t('occupied')}
           </span>
         </div>
@@ -44,7 +54,7 @@ export default function PropertyCard({ property, showActions, onEdit, onDelete, 
         </Link>
 
         <div style={S.priceRow}>
-          <span style={S.price}>${property.price.toLocaleString()}</span>
+          <span style={S.price}>{formatPrice(property.price, currency)}</span>
           <span style={S.pricePer}>{t('perMonth')}</span>
         </div>
 
@@ -79,11 +89,15 @@ export default function PropertyCard({ property, showActions, onEdit, onDelete, 
             <button
               className="btn btn-ghost btn-sm"
               onClick={() => onTogglePublic?.(property)}
-              style={{ fontSize: '0.75rem' }}
             >
-              {property.isPublic ? '🔓 Public' : '🔒 Private'}
+              {property.isPublic ? 'Hide' : 'List'}
             </button>
-            <button className="btn btn-danger btn-sm" onClick={() => onDelete?.(property.id)}>Delete</button>
+            <button
+              className="btn btn-danger btn-sm"
+              onClick={() => onDelete?.(property.id)}
+            >
+              Delete
+            </button>
           </div>
         )}
       </div>
@@ -93,7 +107,7 @@ export default function PropertyCard({ property, showActions, onEdit, onDelete, 
 
 function HouseIcon() {
   return (
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--teal-mid)" strokeWidth="1.2">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--terra-300)" strokeWidth="1.2">
       <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" />
       <path d="M9 21V12h6v9" />
     </svg>
@@ -103,60 +117,92 @@ function HouseIcon() {
 function PinIcon() {
   return (
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
-      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+      <circle cx="12" cy="10" r="3" />
     </svg>
   );
 }
 
 const S: Record<string, React.CSSProperties> = {
   card: {
-    background: '#fff', border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-lg)', overflow: 'hidden',
-    display: 'flex', flexDirection: 'column',
-    transition: 'box-shadow 0.2s, transform 0.2s',
+    background: '#fff',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-lg)',
+    overflow: 'hidden',
+    boxShadow: 'var(--shadow)',
+    display: 'flex',
+    flexDirection: 'column',
+    transition: 'box-shadow 0.18s, transform 0.18s',
   },
   imgWrap: {
-    position: 'relative', display: 'block',
-    aspectRatio: '16/10', overflow: 'hidden',
-    background: 'var(--surface2)',
+    display: 'block',
+    position: 'relative',
+    height: 180,
+    background: 'var(--terra-100)',
+    overflow: 'hidden',
+    flexShrink: 0,
   },
-  img: { width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease' },
+  img: {
+    width: '100%', height: '100%', objectFit: 'cover',
+    transition: 'transform 0.3s ease',
+  },
   imgPlaceholder: {
     width: '100%', height: '100%',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
   typePill: {
-    position: 'absolute', top: 10, left: 10,
-    background: 'rgba(4,52,44,0.78)', color: '#fff',
-    fontSize: '0.7rem', fontWeight: 500, padding: '3px 9px',
-    borderRadius: 20, backdropFilter: 'blur(4px)',
+    position: 'absolute', bottom: 10, left: 10,
+    background: 'rgba(253,250,246,0.92)', backdropFilter: 'blur(6px)',
+    color: 'var(--terra-700)', fontSize: '0.7rem', fontWeight: 600,
+    padding: '3px 10px', borderRadius: 20,
+    letterSpacing: '0.3px',
   },
   statusDot: {
     position: 'absolute', top: 10, right: 10,
-    width: 10, height: 10, borderRadius: '50%', border: '2px solid #fff',
+    width: 10, height: 10, borderRadius: '50%',
+    border: '2px solid rgba(255,255,255,0.8)',
   },
-  body: { padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1 },
-  topRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
+  body: {
+    padding: '14px 16px 16px',
+    display: 'flex', flexDirection: 'column', gap: 8, flex: 1,
+  },
+  topRow: {
+    display: 'flex', justifyContent: 'space-between',
+    alignItems: 'center', gap: 6,
+  },
   locationText: {
     display: 'flex', alignItems: 'center', gap: 4,
-    fontSize: '0.78rem', color: 'var(--text-muted)',
+    fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400,
   },
   statusBadge: {
-    fontSize: '0.68rem', fontWeight: 500, padding: '2px 8px', borderRadius: 20, flexShrink: 0,
+    fontSize: '0.68rem', fontWeight: 600, padding: '2px 8px',
+    borderRadius: 20, flexShrink: 0,
   },
   title: {
-    fontFamily: 'var(--font-display)', fontSize: '1.05rem',
-    color: 'var(--text-primary)', lineHeight: 1.3, textDecoration: 'none',
-    display: '-webkit-box', WebkitLineClamp: 2,
-    WebkitBoxOrient: 'vertical', overflow: 'hidden',
+    fontFamily: 'var(--font-display)',
+    fontSize: '1.05rem',
+    fontWeight: 600,
+    color: 'var(--terra-900)',
+    letterSpacing: '-0.2px',
+    lineHeight: 1.25,
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
+    overflow: 'hidden',
+    textDecoration: 'none',
   },
-  priceRow: { display: 'flex', alignItems: 'baseline', gap: 3, marginTop: 2 },
-  price: { fontSize: '1.2rem', fontWeight: 700, color: 'var(--teal)' },
+  priceRow: { display: 'flex', alignItems: 'baseline', gap: 4 },
+  price: {
+    fontFamily: 'var(--font-display)',
+    fontSize: '1.2rem',
+    fontWeight: 600,
+    color: 'var(--terra-600)',
+  },
   pricePer: { fontSize: '0.78rem', color: 'var(--text-muted)' },
   amenities: { display: 'flex', flexWrap: 'wrap', gap: 4 },
   amenityTag: {
     fontSize: '0.68rem', padding: '2px 7px',
-    background: 'var(--surface2)', color: 'var(--text-secondary)',
+    background: 'var(--stone-50)', color: 'var(--text-secondary)',
     borderRadius: 6, border: '1px solid var(--border)',
   },
   amenityMore: { fontSize: '0.68rem', color: 'var(--text-muted)', padding: '2px 4px' },
@@ -164,14 +210,14 @@ const S: Record<string, React.CSSProperties> = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     padding: '9px 16px', borderRadius: 8, fontSize: '0.85rem',
     fontWeight: 500, fontFamily: 'var(--font-body)',
-    textDecoration: 'none', marginTop: 4, transition: 'all 0.15s',
+    textDecoration: 'none', transition: 'all 0.15s',
   },
   bookBtnActive: {
-    background: 'var(--teal)', color: '#fff',
+    background: 'var(--terra-600)', color: '#fff',
   },
   bookBtnDisabled: {
     background: 'var(--surface2)', color: 'var(--text-muted)',
-    pointerEvents: 'none',
+    pointerEvents: 'none' as const,
   },
-  actions: { display: 'flex', gap: 5, marginTop: 6, flexWrap: 'wrap' },
+  actions: { display: 'flex', gap: 5, flexWrap: 'wrap' },
 };

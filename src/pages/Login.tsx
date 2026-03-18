@@ -44,7 +44,7 @@ export default function Login() {
       <div style={S.card}>
         <HexLogo />
         <h1 style={S.title}>Welcome back</h1>
-        <p style={S.sub}>Sign in to your Hive account</p>
+        <p style={S.sub}>Sign in to your Terra account</p>
 
         {error && (
           <div style={S.errorBox}>
@@ -105,11 +105,12 @@ function HexLogo() {
   return (
     <div style={{ textAlign: 'center', marginBottom: 24 }}>
       <svg width="48" height="48" viewBox="0 0 28 28" fill="none" style={{ margin: '0 auto 8px' }}>
-        <polygon points="14,2 24,7.5 24,20.5 14,26 4,20.5 4,7.5" stroke="#1D9E75" strokeWidth="2" fill="none" strokeLinejoin="round" />
-        <polygon points="14,7 20,10.5 20,17.5 14,21 8,17.5 8,10.5" stroke="#1D9E75" strokeWidth="1.2" fill="none" strokeLinejoin="round" opacity="0.5" />
-        <polygon points="14,11 17,12.75 17,16.25 14,18 11,16.25 11,12.75" fill="#1D9E75" />
+        <rect x="4" y="23" width="24" height="2.5" rx="1.25" fill="#7A4A20" opacity="0.35" />
+        <path d="M4 22 L16 10 L28 22" stroke="#7A4A20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        <path d="M7 22 L16 14 L25 22" stroke="#B06B30" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        <path d="M10 22 L16 17 L22 22" stroke="#D4884A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
       </svg>
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', color: 'var(--teal-deeper)' }}>Hive</div>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', color: 'var(--teal-deeper)' }}>Terra</div>
     </div>
   );
 }

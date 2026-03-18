@@ -1,5 +1,6 @@
 export type UserRole = 'visitor' | 'tenant' | 'owner' | 'admin' | 'superAdmin';
 export type Language = 'en' | 'fr' | 'rw';
+export type Currency = 'USD' | 'RWF';
 
 export interface User {
   id: string;
@@ -20,26 +21,11 @@ export type PropertyCategory =
   | 'Mixed Use';
 
 export type PropertyType =
-  // Residential
-  | 'Apartment'
-  | 'House'
-  | 'Shared Living'
-  | 'Multi-Unit Residence'
-  // Commercial
-  | 'Office'
-  | 'Retail'
-  | 'Food & Hospitality'
-  | 'Industrial'
-  // Storage / Utility
-  | 'Storage'
-  | 'Parking'
-  | 'Specialized Storage'
-  // Land / Outdoor
-  | 'Land'
-  | 'Outdoor Space'
-  // Hospitality
+  | 'Apartment' | 'House' | 'Shared Living' | 'Multi-Unit Residence'
+  | 'Office' | 'Retail' | 'Food & Hospitality' | 'Industrial'
+  | 'Storage' | 'Parking' | 'Specialized Storage'
+  | 'Land' | 'Outdoor Space'
   | 'Short Stay'
-  // Mixed Use
   | 'Hybrid Property';
 
 export type PropertySubcategory = string;
@@ -53,6 +39,7 @@ export interface Property {
   type: PropertyType;
   subcategory: PropertySubcategory;
   price: number;
+  currency: Currency;            // USD or RWF
   location: string;
   amenities: string[];
   images: string[];
@@ -71,7 +58,8 @@ export interface Contract {
   tenantId: string;
   ownerId: string;
   rentAmount: number;
-  depositAmount: number;         // security deposit held by owner
+  depositAmount: number;
+  currency: Currency;
   startDate: string;
   endDate: string;
   contractDocumentURL?: string;
@@ -93,7 +81,7 @@ export interface MaintenanceRequest {
   status: MaintenanceStatus;
   createdAt: string;
   resolvedAt?: string;
-  repairCost?: number;           // cost recorded by owner after resolution
+  repairCost?: number;
 }
 
 export type BookingStatus = 'pending' | 'approved' | 'rejected';
@@ -109,8 +97,8 @@ export interface BookingRequest {
 }
 
 export interface PlatformSettings {
-  serviceFeePercent: number;   // e.g. 5 = 5%
-  serviceFeeFixed: number;     // e.g. 10 = $10 flat per month
+  serviceFeePercent: number;
+  serviceFeeFixed: number;
   serviceFeeType: 'percent' | 'fixed';
   updatedAt: string;
   updatedBy: string;
@@ -157,9 +145,10 @@ export interface RentPayment {
   contractId: string;
   tenantId: string;
   ownerId: string;
-  month: string;             // "2025-03" ISO year-month
+  month: string;
   amount: number;
-  proofUrl: string;          // Cloudinary URL for receipt / bank screenshot
+  currency: Currency;
+  proofUrl: string;
   notes: string;
   status: PaymentStatus;
   createdAt: string;
@@ -177,7 +166,7 @@ export interface ReimbursementRequest {
   title: string;
   description: string;
   amount: number;
-  receiptUrls: string[];     // proof files tenant paid out of pocket
+  receiptUrls: string[];
   status: ReimbursementStatus;
   ownerNote?: string;
   createdAt: string;
