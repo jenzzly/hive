@@ -1,4 +1,5 @@
 import type { Contract } from '../types';
+import { formatCurrency } from '../utils/format';
 
 interface Props {
   contract: Contract;
@@ -29,7 +30,7 @@ export default function ContractViewer({ contract, propertyTitle, tenantName }: 
       {/* Details grid */}
       <div style={styles.grid}>
         <Detail label="Tenant" value={tenantName || contract.tenantId} />
-        <Detail label="Monthly Rent" value={`$${contract.rentAmount.toLocaleString()}`} highlight />
+        <Detail label="Monthly Rent" value={formatCurrency(contract.rentAmount, contract.currency || 'USD')} highlight />
         <Detail label="Start Date" value={start} />
         <Detail label="End Date" value={end} />
         <Detail label="Contract ID" value={`#${contract.id.slice(-8).toUpperCase()}`} />

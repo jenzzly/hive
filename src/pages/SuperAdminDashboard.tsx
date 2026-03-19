@@ -7,6 +7,8 @@ import { getAllContracts, deleteContract, updateContract, createContract } from 
 import { getPlatformConfig, updatePlatformConfig, type PlatformConfig } from '../services/settingsService';
 import { useToast } from '../hooks/useToast';
 import { useLang } from '../contexts/LanguageContext';
+import { useSettings } from '../contexts/SettingsContext';
+import { formatCurrency } from '../utils/format';
 import type { User, UserRole, Property, RentPayment, ReimbursementRequest, Contract, Currency, PropertyCategory, PropertyType, ContractStatus, ReimbursementStatus, PaymentStatus } from '../types';
 
 type Tab = 'users' | 'properties' | 'payments' | 'reimbursements' | 'contracts' | 'settings';
@@ -32,24 +34,24 @@ function ReimbBadge({ status }: { status: string }) {
 export default function SuperAdminDashboard() {
   const { show, ToastContainer } = useToast();
   const { t } = useLang();
+  const { settings: platformConfig, refreshSettings } = useSettings();
   const [tab, setTab] = useState<Tab>('users');
   const [users, setUsers] = useState<User[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [payments, setPayments] = useState<RentPayment[]>([]);
   const [reimbursements, setReimbursements] = useState<ReimbursementRequest[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
-  const [platformConfig, setPlatformConfig] = useState<PlatformConfig | null>(null);
-  
+
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  
+
   // Modals
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editingProperty, setEditingProperty] = useState<Partial<Property> | null>(null);
   const [editingPayment, setEditingPayment] = useState<Partial<RentPayment> | null>(null);
   const [editingReimb, setEditingReimb] = useState<Partial<ReimbursementRequest> | null>(null);
   const [editingContract, setEditingContract] = useState<Partial<Contract> | null>(null);
-  
+
   const [saving, setSaving] = useState(false);
 
   const [loadErrors, setLoadErrors] = useState<string[]>([]);
@@ -58,7 +60,7 @@ export default function SuperAdminDashboard() {
     setLoading(true);
     setLoadErrors([]);
     const errors: string[] = [];
-    
+
     try {
       const results = await Promise.allSettled([
         getAllUsers(),
@@ -84,8 +86,7 @@ export default function SuperAdminDashboard() {
       if (results[4].status === 'fulfilled') setContracts(results[4].value);
       else { console.error('Contracts load fail:', results[4].reason); errors.push('Contracts: ' + (results[4].reason?.message || 'Permission denied')); }
 
-      if (results[5].status === 'fulfilled') setPlatformConfig(results[5].value);
-      else { console.error('Config load fail:', results[5].reason); errors.push('Settings: ' + (results[5].reason?.message || 'Permission denied')); }
+      await refreshSettings();
 
       setLoadErrors(errors);
       if (errors.length > 0) {
@@ -114,11 +115,11 @@ export default function SuperAdminDashboard() {
     e.preventDefault();
     if (!editingUser) return;
     setSaving(true);
-    try { 
-      await updateUserProfile(editingUser.id, { name: editingUser.name }); 
-      show('Updated.'); 
-      setEditingUser(null); 
-      await load(); 
+    try {
+      await updateUserProfile(editingUser.id, { name: editingUser.name });
+      show('Updated.');
+      setEditingUser(null);
+      await load();
     } catch (err: any) { show(err.message, 'error'); }
     finally { setSaving(false); }
   };
@@ -218,7 +219,7 @@ export default function SuperAdminDashboard() {
   const handleUpdateCurrency = async (cur: Currency) => {
     try {
       await updatePlatformConfig({ defaultCurrency: cur });
-      setPlatformConfig((prev: PlatformConfig | null) => prev ? { ...prev, defaultCurrency: cur } : null);
+      await refreshSettings();
       show(`Default currency set to ${cur}`);
     } catch (err: any) {
       show('Failed to update currency', 'error');
@@ -227,7 +228,7 @@ export default function SuperAdminDashboard() {
 
   const filter = (list: any[], keys: string[]) => {
     if (!search) return list;
-    return list.filter((item: any) => 
+    return list.filter((item: any) =>
       keys.some((key: string) => String(item[key] || '').toLowerCase().includes(search.toLowerCase()))
     );
   };
@@ -287,7 +288,7 @@ export default function SuperAdminDashboard() {
           <form onSubmit={handleSaveUser} className="card" style={MS.modalCard}>
             <h3>Edit User</h3>
             <div className="form-group"><label className="form-label">Name</label>
-              <input className="form-input" value={editingUser.name} onChange={e => setEditingUser({...editingUser, name: e.target.value})} />
+              <input className="form-input" value={editingUser.name} onChange={e => setEditingUser({ ...editingUser, name: e.target.value })} />
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
@@ -299,20 +300,20 @@ export default function SuperAdminDashboard() {
 
       {editingProperty && (
         <div style={MS.modalOverlay}>
-          <form onSubmit={handleSaveProperty} className="card" style={{...MS.modalCard, maxWidth: 500}}>
+          <form onSubmit={handleSaveProperty} className="card" style={{ ...MS.modalCard, maxWidth: 500 }}>
             <h3>{editingProperty.id ? 'Edit Property' : 'New Property'}</h3>
-            <div className="grid-2" style={{gap:12}}>
+            <div className="grid-2" style={{ gap: 12 }}>
               <div className="form-group"><label className="form-label">Title</label>
-                <input className="form-input" required value={editingProperty.title || ''} onChange={e => setEditingProperty({...editingProperty, title: e.target.value})} />
+                <input className="form-input" required value={editingProperty.title || ''} onChange={e => setEditingProperty({ ...editingProperty, title: e.target.value })} />
               </div>
               <div className="form-group"><label className="form-label">Price</label>
-                <input className="form-input" type="number" required value={editingProperty.price || 0} onChange={e => setEditingProperty({...editingProperty, price: Number(e.target.value)})} />
+                <input className="form-input" type="number" required value={editingProperty.price || 0} onChange={e => setEditingProperty({ ...editingProperty, price: Number(e.target.value) })} />
               </div>
               <div className="form-group"><label className="form-label">Location</label>
-                <input className="form-input" required value={editingProperty.location || ''} onChange={e => setEditingProperty({...editingProperty, location: e.target.value})} />
+                <input className="form-input" required value={editingProperty.location || ''} onChange={e => setEditingProperty({ ...editingProperty, location: e.target.value })} />
               </div>
               <div className="form-group"><label className="form-label">Owner ID</label>
-                <input className="form-input" required value={editingProperty.ownerId || ''} onChange={e => setEditingProperty({...editingProperty, ownerId: e.target.value})} />
+                <input className="form-input" required value={editingProperty.ownerId || ''} onChange={e => setEditingProperty({ ...editingProperty, ownerId: e.target.value })} />
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
@@ -328,10 +329,10 @@ export default function SuperAdminDashboard() {
           <form onSubmit={handleSavePayment} className="card" style={MS.modalCard}>
             <h3>{editingPayment.id ? 'Edit Payment' : 'New Payment'}</h3>
             <div className="form-group"><label className="form-label">Amount</label>
-              <input type="number" className="form-input" required value={editingPayment.amount || 0} onChange={e => setEditingPayment({...editingPayment, amount: Number(e.target.value)})} />
+              <input type="number" className="form-input" required value={editingPayment.amount || 0} onChange={e => setEditingPayment({ ...editingPayment, amount: Number(e.target.value) })} />
             </div>
             <div className="form-group"><label className="form-label">Status</label>
-              <select className="form-input" value={editingPayment.status} onChange={e => setEditingPayment({...editingPayment, status: e.target.value as PaymentStatus})}>
+              <select className="form-input" value={editingPayment.status} onChange={e => setEditingPayment({ ...editingPayment, status: e.target.value as PaymentStatus })}>
                 <option value="pending">Pending</option>
                 <option value="verified">Verified</option>
                 <option value="rejected">Rejected</option>
@@ -347,20 +348,20 @@ export default function SuperAdminDashboard() {
 
       {editingContract && (
         <div style={MS.modalOverlay}>
-          <form onSubmit={handleSaveContract} className="card" style={{...MS.modalCard, maxWidth: 500}}>
+          <form onSubmit={handleSaveContract} className="card" style={{ ...MS.modalCard, maxWidth: 500 }}>
             <h3>{editingContract.id ? 'Edit Contract' : 'New Contract'}</h3>
-            <div className="grid-2" style={{gap:12}}>
+            <div className="grid-2" style={{ gap: 12 }}>
               <div className="form-group"><label className="form-label">Rent Amount</label>
-                <input type="number" className="form-input" required value={editingContract.rentAmount || 0} onChange={e => setEditingContract({...editingContract, rentAmount: Number(e.target.value)})} />
+                <input type="number" className="form-input" required value={editingContract.rentAmount || 0} onChange={e => setEditingContract({ ...editingContract, rentAmount: Number(e.target.value) })} />
               </div>
               <div className="form-group"><label className="form-label">Property ID</label>
-                <input className="form-input" required value={editingContract.propertyId || ''} onChange={e => setEditingContract({...editingContract, propertyId: e.target.value})} />
+                <input className="form-input" required value={editingContract.propertyId || ''} onChange={e => setEditingContract({ ...editingContract, propertyId: e.target.value })} />
               </div>
               <div className="form-group"><label className="form-label">Tenant ID</label>
-                <input className="form-input" required value={editingContract.tenantId || ''} onChange={e => setEditingContract({...editingContract, tenantId: e.target.value})} />
+                <input className="form-input" required value={editingContract.tenantId || ''} onChange={e => setEditingContract({ ...editingContract, tenantId: e.target.value })} />
               </div>
               <div className="form-group"><label className="form-label">Status</label>
-                <select className="form-input" value={editingContract.status} onChange={e => setEditingContract({...editingContract, status: e.target.value as ContractStatus})}>
+                <select className="form-input" value={editingContract.status} onChange={e => setEditingContract({ ...editingContract, status: e.target.value as ContractStatus })}>
                   <option value="active">Active</option>
                   <option value="expired">Expired</option>
                 </select>
@@ -390,9 +391,9 @@ export default function SuperAdminDashboard() {
           {tab !== 'settings' && (
             <input className="form-input" style={{ maxWidth: 220 }} placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} />
           )}
-          {tab === 'properties' && <button className="btn btn-primary btn-sm" onClick={() => setEditingProperty({category: 'Residential', type: 'Apartment', status: 'available', isPublic: true, currency: platformConfig?.defaultCurrency || 'USD', images: [], amenities: []})}>+ Property</button>}
-          {tab === 'payments' && <button className="btn btn-primary btn-sm" onClick={() => setEditingPayment({status: 'pending', currency: platformConfig?.defaultCurrency || 'USD'})}>+ Payment</button>}
-          {tab === 'contracts' && <button className="btn btn-primary btn-sm" onClick={() => setEditingContract({status: 'active', currency: platformConfig?.defaultCurrency || 'USD'})}>+ Contract</button>}
+          {tab === 'properties' && <button className="btn btn-primary btn-sm" onClick={() => setEditingProperty({ category: 'Residential', type: 'Apartment', status: 'available', isPublic: true, currency: platformConfig?.defaultCurrency || 'USD', images: [], amenities: [] })}>+ Property</button>}
+          {tab === 'payments' && <button className="btn btn-primary btn-sm" onClick={() => setEditingPayment({ status: 'pending', currency: platformConfig?.defaultCurrency || 'USD' })}>+ Payment</button>}
+          {tab === 'contracts' && <button className="btn btn-primary btn-sm" onClick={() => setEditingContract({ status: 'active', currency: platformConfig?.defaultCurrency || 'USD' })}>+ Contract</button>}
         </div>
       </div>
 
@@ -439,8 +440,8 @@ export default function SuperAdminDashboard() {
                 <tbody>
                   {filter(properties, ['title', 'location']).map(p => (
                     <tr key={p.id} style={MS.tr}>
-                      <td style={MS.td}><div style={{fontWeight: 500}}>{p.title}</div><div style={{fontSize: '0.75rem', color: 'var(--text-muted)'}}>{p.location}</div></td>
-                      <td style={MS.td}><span style={{ fontWeight: 600 }}>{p.currency} {p.price.toLocaleString()}</span></td>
+                      <td style={MS.td}><div style={{ fontWeight: 500 }}>{p.title}</div><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.location}</div></td>
+                      <td style={MS.td}><span style={{ fontWeight: 600 }}>{formatCurrency(p.price, p.currency)}</span></td>
                       <td style={MS.td}><span className={`badge ${p.status === 'available' ? 'badge-green' : 'badge-amber'}`}>{p.status}</span></td>
                       <td style={MS.td}><span style={{ fontSize: '0.82rem', fontFamily: 'monospace' }}>{p.ownerId.slice(0, 8)}…</span></td>
                       <td style={MS.td}>
@@ -467,7 +468,7 @@ export default function SuperAdminDashboard() {
                     <tr key={pay.id} style={MS.tr}>
                       <td style={MS.td}><span style={{ fontSize: '0.85rem' }}>{properties.find(p => p.id === pay.propertyId)?.title ?? pay.propertyId.slice(0, 8)}</span></td>
                       <td style={MS.td}><span style={{ fontWeight: 500 }}>{pay.month}</span></td>
-                      <td style={MS.td}><span style={{ fontWeight: 600, color: 'var(--teal)' }}>{pay.currency} {pay.amount.toLocaleString()}</span></td>
+                      <td style={MS.td}><span style={{ fontWeight: 600, color: 'var(--teal)' }}>{formatCurrency(pay.amount, pay.currency || 'RWF')}</span></td>
                       <td style={MS.td}><PayBadge status={pay.status} /></td>
                       <td style={MS.td}>
                         <div style={{ display: 'flex', gap: 6 }}>
@@ -493,13 +494,13 @@ export default function SuperAdminDashboard() {
                     <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{r.description}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: 700, color: '#3b82f6' }}>${r.amount.toLocaleString()}</div>
+                    <div style={{ fontWeight: 700, color: '#3b82f6' }}>{formatCurrency(r.amount, r.currency || 'USD')}</div>
                     <ReimbBadge status={r.status} />
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                   <button className="btn btn-secondary btn-sm" onClick={() => setEditingReimb(r)}>Edit</button>
-                   <button className="btn btn-danger btn-sm" onClick={() => handleDeleteReimb(r.id)}>Delete</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => setEditingReimb(r)}>Edit</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => handleDeleteReimb(r.id)}>Delete</button>
                 </div>
               </div>
             ))}
@@ -516,7 +517,7 @@ export default function SuperAdminDashboard() {
                     <tr key={c.id} style={MS.tr}>
                       <td style={MS.td}><span style={{ fontSize: '0.85rem' }}>{properties.find(p => p.id === c.propertyId)?.title ?? c.propertyId.slice(0, 8)}</span></td>
                       <td style={MS.td}><span style={{ fontSize: '0.85rem' }}>{users.find(u => u.id === c.tenantId)?.name ?? c.tenantId.slice(0, 8)}</span></td>
-                      <td style={MS.td}><span style={{ fontWeight: 600 }}>{c.currency} {c.rentAmount.toLocaleString()}</span></td>
+                      <td style={MS.td}><span style={{ fontWeight: 600 }}>{formatCurrency(c.rentAmount, c.currency)}</span></td>
                       <td style={MS.td}><span className={`badge ${c.status === 'active' ? 'badge-blue' : 'badge-gray'}`}>{c.status}</span></td>
                       <td style={MS.td}>
                         <div style={{ display: 'flex', gap: 6 }}>

@@ -9,6 +9,8 @@ import { getOrCreateConversation } from '../services/messageService';
 import { useAuth } from '../contexts/AuthContext';
 import { useLang } from '../contexts/LanguageContext';
 import PropertyGallery from '../components/PropertyGallery';
+import { useSettings } from '../contexts/SettingsContext';
+import { formatCurrency } from '../utils/format';
 import type { Property, User } from '../types';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -23,6 +25,7 @@ export default function PropertyDetail() {
   const navigate = useNavigate();
   const { userProfile, firebaseUser } = useAuth();
   const { t } = useLang();
+  const { defaultCurrency } = useSettings();
 
   const [property, setProperty] = useState<Property | null>(null);
   const [owner, setOwner] = useState<User | null>(null);
@@ -129,11 +132,11 @@ export default function PropertyDetail() {
     <div className="card" style={{ padding: 24, position: isMobile ? 'static' : 'sticky', top: 80 }
     }>
       {/* Price */}
-      < div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 4 }}>
         <span style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--teal)', fontWeight: 700 }}>
-          ${property.price.toLocaleString()}
+          {formatCurrency(property.price, property.currency || 'USD')}
         </span>
-        < span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}> {t('perMonth')} </span>
+        <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}> {t('perMonth')} </span>
       </div>
       < div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 5 }}>
         📍 {property.location}

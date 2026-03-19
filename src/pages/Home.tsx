@@ -3,6 +3,8 @@ import { getPublicProperties } from '../services/propertyService';
 import { useLang } from '../contexts/LanguageContext';
 import { getCategories, getTypes, getSubcategories } from '../utils/propertyTaxonomy';
 import PropertyCard from '../components/PropertyCard';
+import { useSettings } from '../contexts/SettingsContext';
+import { getCurrencySymbol } from '../utils/format';
 import type { Property } from '../types';
 
 interface Filters {
@@ -20,16 +22,18 @@ const EMPTY_FILTERS: Filters = {
 
 export default function Home() {
   const { t } = useLang();
+  const { defaultCurrency } = useSettings();
   const [all, setAll] = useState<Property[]>([]);
   const [filtered, setFiltered] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<Filters>({ ...EMPTY_FILTERS });
   const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 12;
 
   useEffect(() => {
     getPublicProperties()
       .then(data => {
-        // Sort newest first client-side (avoids composite index)
         const sorted = [...data].sort((a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
@@ -55,12 +59,14 @@ export default function Home() {
     if (filters.maxPrice > 0)
       res = res.filter(p => p.price <= filters.maxPrice);
     setFiltered(res);
+    setPage(1);
     setShowFilters(false);
   };
 
   const resetFilters = () => {
     setFilters({ ...EMPTY_FILTERS });
     setFiltered(all);
+    setPage(1);
   };
 
   const sf = (patch: Partial<Filters>) => setFilters(f => ({ ...f, ...patch }));
@@ -69,6 +75,9 @@ export default function Home() {
   const categories = getCategories();
   const types = getTypes(filters.category);
   const subcategories = getSubcategories(filters.category, filters.type);
+
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
 
   return (
     <div>
@@ -141,7 +150,7 @@ export default function Home() {
                 {/* Min price */}
                 <div className="form-group">
                   <label className="form-label" style={S.filterLabel}>{t('minPrice')}</label>
-                  <input type="number" className="form-input" placeholder="$0"
+                  <input type="number" className="form-input" placeholder={`${getCurrencySymbol(defaultCurrency)}0`}
                     value={filters.minPrice || ''}
                     onChange={e => sf({ minPrice: Number(e.target.value) })} />
                 </div>
@@ -195,8 +204,8 @@ export default function Home() {
             {filters.type && <Chip label={filters.type} onRemove={() => sf({ type: '', subcategory: '' })} />}
             {filters.subcategory && <Chip label={filters.subcategory} onRemove={() => sf({ subcategory: '' })} />}
             {filters.location && <Chip label={`📍 ${filters.location}`} onRemove={() => sf({ location: '' })} />}
-            {filters.minPrice > 0 && <Chip label={`Min $${filters.minPrice}`} onRemove={() => sf({ minPrice: 0 })} />}
-            {filters.maxPrice > 0 && <Chip label={`Max $${filters.maxPrice}`} onRemove={() => sf({ maxPrice: 0 })} />}
+            {filters.minPrice > 0 && <Chip label={`Min ${getCurrencySymbol(defaultCurrency)}${filters.minPrice}`} onRemove={() => sf({ minPrice: 0 })} />}
+            {filters.maxPrice > 0 && <Chip label={`Max ${getCurrencySymbol(defaultCurrency)}${filters.maxPrice}`} onRemove={() => sf({ maxPrice: 0 })} />}
           </div>
         )}
 
@@ -214,9 +223,47 @@ export default function Home() {
             )}
           </div>
         ) : (
-          <div className="grid-3">
-            {filtered.map(p => <PropertyCard key={p.id} property={p} />)}
-          </div>
+          <>
+            <div className="grid-3">
+              {paginated.map(p => <PropertyCard key={p.id} property={p} />)}
+            </div>
+            
+            {/* Pagination UI */}
+            {totalPages > 1 && (
+              <div style={S.paginationRow}>
+                <button 
+                  className="btn btn-ghost btn-sm" 
+                  disabled={page === 1} 
+                  onClick={() => setPage(p => p - 1)}
+                  style={S.pageBtn}
+                >
+                  {t('prev') || 'Prev'}
+                </button>
+                <div style={S.pageNumbers}>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(num => (
+                    <button
+                      key={num}
+                      onClick={() => setPage(num)}
+                      style={{
+                        ...S.pageNum,
+                        ...(page === num ? S.pageNumActive : {})
+                      }}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+                <button 
+                  className="btn btn-ghost btn-sm" 
+                  disabled={page === totalPages} 
+                  onClick={() => setPage(p => p + 1)}
+                  style={S.pageBtn}
+                >
+                  {t('next') || 'Next'}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -352,4 +399,16 @@ const S: Record<string, React.CSSProperties> = {
     background: 'none', border: 'none', cursor: 'pointer',
     color: 'var(--teal)', fontSize: '0.7rem', padding: 0, lineHeight: 1,
   },
+  paginationRow: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 40 },
+  pageNumbers: { display: 'flex', gap: 8 },
+  pageNum: {
+    width: 36, height: 36, borderRadius: 8, border: '1px solid var(--border)',
+    background: '#fff', color: 'var(--text-secondary)', fontSize: '0.9rem',
+    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    transition: 'all 0.15s',
+  },
+  pageNumActive: {
+    background: 'var(--teal)', color: '#fff', borderColor: 'var(--teal)', fontWeight: 600,
+  },
+  pageBtn: { padding: '8px 16px', borderRadius: 8 },
 };

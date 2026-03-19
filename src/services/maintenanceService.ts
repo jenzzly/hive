@@ -15,7 +15,7 @@ import type { MaintenanceRequest } from '../types';
 const COL = 'maintenanceRequests';
 
 export const createMaintenanceRequest = async (
-  data: Omit<MaintenanceRequest, 'id' | 'createdAt' | 'resolvedAt'>
+  data: Omit<MaintenanceRequest, 'id' | 'createdAt' | 'resolvedAt' | 'status'>
 ): Promise<string> => {
   const ref = await addDoc(collection(db, COL), {
     ...data,

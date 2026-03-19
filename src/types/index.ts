@@ -166,6 +166,7 @@ export interface ReimbursementRequest {
   title: string;
   description: string;
   amount: number;
+  currency: Currency;
   receiptUrls: string[];
   status: ReimbursementStatus;
   ownerNote?: string;

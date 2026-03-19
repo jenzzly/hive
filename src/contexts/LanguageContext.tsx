@@ -15,7 +15,7 @@ type TranslationKey =
   | 'name' | 'email' | 'password' | 'language' | 'saveChanges' | 'userSettings'
   | 'changePassword' | 'newPassword' | 'confirmPassword' | 'profileUpdated'
   | 'passwordUpdated' | 'english' | 'french' | 'kinyarwanda' | 'forgotPassword'
-  | 'sendResetLink' | 'resetEmailSent' | 'backToLogin' | 'resetPassword';
+  | 'sendResetLink' | 'resetEmailSent' | 'backToLogin' | 'resetPassword' | 'prev' | 'next';
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -50,6 +50,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     kinyarwanda: 'Kinyarwanda', forgotPassword: 'Forgot password?',
     sendResetLink: 'Send Reset Link', resetEmailSent: 'Reset link sent! Check your email.',
     backToLogin: 'Back to Login', resetPassword: 'Reset Password',
+    prev: 'Prev', next: 'Next',
   },
   fr: {
     browse: 'Parcourir', dashboard: 'Tableau de bord', myProperty: 'Ma Propriété',
@@ -83,6 +84,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     kinyarwanda: 'Kinyarwanda', forgotPassword: 'Mot de passe oublié ?',
     sendResetLink: 'Envoyer le lien', resetEmailSent: 'Lien envoyé ! Vérifiez vos emails.',
     backToLogin: 'Retour à la connexion', resetPassword: 'Réinitialiser',
+    prev: 'Précédent', next: 'Suivant',
   },
   rw: {
     browse: 'Reba', dashboard: 'Ikibaho', myProperty: 'Inzu Yanjye',
@@ -116,6 +118,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     kinyarwanda: 'Kinyarwanda', forgotPassword: 'Wibagiwe ijambo ry\'ibanga?',
     sendResetLink: 'Ohereza ihuzanshu', resetEmailSent: 'Ihuza ryo guhindura ryoherejwe! Reba imeyili yawe.',
     backToLogin: 'Subira aho winjirira', resetPassword: 'Hindura ijambo ry\'ibanga',
+    prev: 'Ibanze', next: 'Imbere',
   },
 };
 

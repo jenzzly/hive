@@ -60,6 +60,8 @@ export const subscribeToAuthState = (
 ) => onAuthStateChanged(auth, callback);
 
 export const resetPassword = async (email: string): Promise<void> => {
-  await sendPasswordResetEmail(auth, email);
+  await sendPasswordResetEmail(auth, email, {
+    url: 'http://terraviser.com/account_reset',
+  });
 };
 

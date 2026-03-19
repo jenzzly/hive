@@ -11,12 +11,14 @@ import PropertyGallery from '../components/PropertyGallery';
 import ContractViewer from '../components/ContractViewer';
 import MaintenanceForm from '../components/MaintenanceForm';
 import type { Property, Contract, MaintenanceRequest, RentPayment, ReimbursementRequest } from '../types';
+import { useSettings } from '../contexts/SettingsContext';
+import { formatCurrency } from '../utils/format';
 
 type Tab = 'properties' | 'payments' | 'contracts' | 'maintenance' | 'reimbursements';
 
 function PayStatusBadge({ status }: { status: string }) {
   const map: Record<string, [string, string]> = {
-    pending:  ['#f59e0b', '⏳ Pending'],
+    pending: ['#f59e0b', '⏳ Pending'],
     verified: ['var(--teal)', '✓ Verified'],
     rejected: ['#ef4444', '✗ Rejected'],
   };
@@ -26,9 +28,9 @@ function PayStatusBadge({ status }: { status: string }) {
 
 function ReimbStatusBadge({ status }: { status: string }) {
   const map: Record<string, [string, string]> = {
-    pending:  ['#f59e0b', '⏳ Pending'],
+    pending: ['#f59e0b', '⏳ Pending'],
     approved: ['#3b82f6', '✓ Approved'],
-    paid:     ['var(--teal)', '💸 Paid'],
+    paid: ['var(--teal)', '💸 Paid'],
     rejected: ['#ef4444', '✗ Rejected'],
   };
   const [color, label] = map[status] ?? ['#94a3b8', status];
@@ -38,6 +40,7 @@ function ReimbStatusBadge({ status }: { status: string }) {
 export default function TenantDashboard() {
   const { userProfile } = useAuth();
   const { show, ToastContainer } = useToast();
+  const { defaultCurrency } = useSettings();
 
   const [tab, setTab] = useState<Tab>('properties');
   const [properties, setProperties] = useState<Property[]>([]);
@@ -52,7 +55,7 @@ export default function TenantDashboard() {
 
   // Pay form
   const [showPayForm, setShowPayForm] = useState(false);
-  const [payForm, setPayForm] = useState({ month: '', amount: '', notes: '', propertyId: '' });
+  const [payForm, setPayForm] = useState<{ month: string; amount: string; notes: string; propertyId: string; currency: string }>({ month: '', amount: '', notes: '', propertyId: '', currency: defaultCurrency || 'USD' });
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [payLoading, setPayLoading] = useState(false);
 
@@ -109,11 +112,12 @@ export default function TenantDashboard() {
         amount: Number(payForm.amount),
         proofUrl,
         notes: payForm.notes,
+        currency: payForm.currency || contract?.currency || 'USD',
         status: 'pending',
       });
       show('Payment submitted! Awaiting owner verification.');
       setShowPayForm(false);
-      setPayForm({ month: '', amount: '', notes: '', propertyId: '' });
+      setPayForm({ month: '', amount: '', notes: '', propertyId: '', currency: defaultCurrency || 'USD' });
       setProofFile(null);
       await load();
     } catch (err: any) {
@@ -136,6 +140,7 @@ export default function TenantDashboard() {
         title: reimbForm.title,
         description: reimbForm.description,
         amount: Number(reimbForm.amount),
+        currency: defaultCurrency,
         receiptUrls,
         status: 'pending',
       });
@@ -199,7 +204,7 @@ export default function TenantDashboard() {
         properties.length === 0 ? (
           <div className="empty-state">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--teal-mid)" strokeWidth="1.2" style={{ margin: '0 auto 16px' }}>
-              <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/>
+              <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" /><path d="M9 21V12h6v9" />
             </svg>
             <h3>No properties assigned</h3>
             <p>Your rented units will appear here once a contract is active.</p>
@@ -218,15 +223,15 @@ export default function TenantDashboard() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
                       <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '8px 10px' }}>
                         <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Monthly Rent</div>
-                        <div style={{ fontWeight: 700, color: 'var(--teal)', fontSize: '1rem' }}>${p.price.toLocaleString()}</div>
+                        <div style={{ fontWeight: 700, color: 'var(--teal)', fontSize: '1rem' }}>{formatCurrency(p.price, p.currency || 'USD')}</div>
                       </div>
                       <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '8px 10px' }}>
                         <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Deposit</div>
-                        <div style={{ fontWeight: 700, color: '#3b82f6', fontSize: '1rem' }}>${(contract?.depositAmount ?? 0).toLocaleString()}</div>
+                        <div style={{ fontWeight: 700, color: '#3b82f6', fontSize: '1rem' }}>{formatCurrency(contract?.depositAmount ?? 0, contract?.currency ?? 'USD')}</div>
                       </div>
                       <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '8px 10px' }}>
                         <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Rent Paid</div>
-                        <div style={{ fontWeight: 700, color: 'var(--teal)', fontSize: '1rem' }}>${paid.toLocaleString()}</div>
+                        <div style={{ fontWeight: 700, color: 'var(--teal)', fontSize: '1rem' }}>{formatCurrency(paid, contract?.currency ?? 'USD')}</div>
                       </div>
                       <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '8px 10px' }}>
                         <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Lease Ends</div>
@@ -234,7 +239,7 @@ export default function TenantDashboard() {
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button className="btn btn-primary btn-sm" onClick={() => { setPayForm(f => ({ ...f, propertyId: p.id, amount: String(p.price) })); setShowPayForm(true); setTab('payments'); }}>
+                      <button className="btn btn-primary btn-sm" onClick={() => { setPayForm(f => ({ ...f, propertyId: p.id, amount: String(p.price), currency: p.currency || 'USD' })); setShowPayForm(true); setTab('payments'); }}>
                         💳 Pay Rent
                       </button>
                       <button className="btn btn-ghost btn-sm" onClick={() => { setTab('maintenance'); setSelectedPropertyId(p.id); }}>
@@ -270,7 +275,14 @@ export default function TenantDashboard() {
                   <input type="month" className="form-input" value={payForm.month} onChange={e => setPayForm(f => ({ ...f, month: e.target.value }))} required />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Amount Paid ($)</label>
+                  <label className="form-label">Currency</label>
+                  <select className="form-input" value={payForm.currency} onChange={e => setPayForm(f => ({ ...f, currency: e.target.value }))} required>
+                    <option value="USD">USD ($)</option>
+                    <option value="RWF">RWF (FRW)</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Amount Paid</label>
                   <input type="number" className="form-input" value={payForm.amount} onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))} required />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
@@ -298,7 +310,7 @@ export default function TenantDashboard() {
                 return (
                   <div key={pay.id} className="card" style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
                     <div>
-                      <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>{pay.month} — ${pay.amount.toLocaleString()}</div>
+                      <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>{pay.month} — {formatCurrency(pay.amount, pay.currency || 'RWF')}</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{prop?.title ?? pay.propertyId}</div>
                       {pay.notes && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{pay.notes}</div>}
                     </div>
@@ -358,7 +370,7 @@ export default function TenantDashboard() {
                       </div>
                     </div>
                     {req.repairCost && (
-                      <div style={{ marginTop: 8, fontSize: '0.78rem', color: '#ef4444', fontWeight: 600 }}>Repair cost logged: ${req.repairCost.toLocaleString()}</div>
+                      <div style={{ marginTop: 8, fontSize: '0.78rem', color: '#ef4444', fontWeight: 600 }}>Repair cost logged: {formatCurrency(req.repairCost, defaultCurrency)}</div>
                     )}
                   </div>
                 ))}
@@ -393,7 +405,7 @@ export default function TenantDashboard() {
                   <input className="form-input" value={reimbForm.title} onChange={e => setReimbForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Plumber for leaking pipe" required />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Amount ($)</label>
+                  <label className="form-label">Amount ({defaultCurrency})</label>
                   <input type="number" className="form-input" value={reimbForm.amount} onChange={e => setReimbForm(f => ({ ...f, amount: e.target.value }))} required />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
@@ -439,7 +451,7 @@ export default function TenantDashboard() {
                         )}
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                        <div style={{ fontWeight: 700, fontSize: '1.05rem', color: '#3b82f6' }}>${r.amount.toLocaleString()}</div>
+                        <div style={{ fontWeight: 700, fontSize: '1.05rem', color: '#3b82f6' }}>{formatCurrency(r.amount, r.currency || 'USD')}</div>
                         <ReimbStatusBadge status={r.status} />
                       </div>
                     </div>

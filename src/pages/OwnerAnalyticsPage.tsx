@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getOwnerAnalytics, calcFee, calcNet } from '../services/analyticsService';
 import type { OwnerAnalytics } from '../services/analyticsService';
+import { useSettings } from '../contexts/SettingsContext';
+import { formatCurrency, getCurrencySymbol } from '../utils/format';
 import type { Property, Contract } from '../types';
 
 // ─── tiny bar component ───────────────────────────────────────────────
@@ -17,32 +19,27 @@ function Bar({ value, max, color }: { value: number; max: number; color: string 
 // ─── month helpers ────────────────────────────────────────────────────
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-function buildMonthlyProjection(contracts: Contract[], fee: OwnerAnalytics['serviceFee'], months = 12) {
+function buildMonthlyProjection(contracts: Contract[], fee: OwnerAnalytics['serviceFee'], defaultCurrency: string, months = 12) {
   const now = new Date();
   return Array.from({ length: months }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
     const label = `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-    const gross = contracts
-      .filter(c => {
-        if (c.status !== 'active') return false;
-        const start = new Date(c.startDate);
-        const end = new Date(c.endDate);
-        return d >= start && d <= end;
-      })
-      .reduce((sum, c) => sum + c.rentAmount, 0);
-    const feeAmt = contracts
-      .filter(c => c.status === 'active')
-      .reduce((sum, c) => {
-        const start = new Date(c.startDate);
-        const end = new Date(c.endDate);
-        return (d >= start && d <= end) ? sum + calcFee(c.rentAmount, fee) : sum;
-      }, 0);
-    return { label, gross, net: calcNet(gross, fee) + (gross - gross), feeAmt, net2: gross - feeAmt };
+    const periodContracts = contracts.filter(c => {
+      if (c.status !== 'active') return false;
+      if (c.currency !== defaultCurrency) return false;
+      const start = new Date(c.startDate);
+      const end = new Date(c.endDate);
+      return d >= start && d <= end;
+    });
+    const gross = periodContracts.reduce((sum, c) => sum + c.rentAmount, 0);
+    const feeAmt = periodContracts.reduce((sum, c) => sum + calcFee(c.rentAmount, fee), 0);
+    return { label, gross, net: gross - feeAmt, feeAmt, net2: gross - feeAmt };
   });
 }
 
 export default function OwnerAnalyticsPage() {
   const { userProfile } = useAuth();
+  const { defaultCurrency } = useSettings();
   const [data, setData] = useState<OwnerAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -62,12 +59,12 @@ export default function OwnerAnalyticsPage() {
   const available = properties.filter(p => p.status === 'available');
   const activeContracts = contracts.filter(c => c.status === 'active');
 
-  const grossMonthly = activeContracts.reduce((s, c) => s + c.rentAmount, 0);
-  const totalFee = activeContracts.reduce((s, c) => s + calcFee(c.rentAmount, serviceFee), 0);
+  const grossMonthly = activeContracts.filter(c => c.currency === defaultCurrency).reduce((s, c) => s + c.rentAmount, 0);
+  const totalFee = activeContracts.filter(c => c.currency === defaultCurrency).reduce((s, c) => s + calcFee(c.rentAmount, serviceFee), 0);
   const netMonthly = grossMonthly - totalFee;
   const occupancyRate = properties.length > 0 ? Math.round((occupied.length / properties.length) * 100) : 0;
 
-  const projection = buildMonthlyProjection(contracts, serviceFee, 12);
+  const projection = buildMonthlyProjection(contracts, serviceFee, defaultCurrency, 12);
   const maxGross = Math.max(...projection.map(m => m.gross), 1);
 
   // Category breakdown
@@ -76,14 +73,14 @@ export default function OwnerAnalyticsPage() {
     const cat = p.category || 'Other';
     if (!byCategory[cat]) byCategory[cat] = { count: 0, income: 0 };
     byCategory[cat].count++;
-    const c = activeContracts.find(c => c.propertyId === p.id);
+    const c = activeContracts.find(c => c.propertyId === p.id && c.currency === defaultCurrency);
     if (c) byCategory[cat].income += c.rentAmount;
   });
 
   const feeLabel = serviceFee
     ? serviceFee.serviceFeeType === 'percent'
       ? `${serviceFee.serviceFeePercent}% platform fee`
-      : `$${serviceFee.serviceFeeFixed} flat fee/mo`
+      : `${formatCurrency(serviceFee.serviceFeeFixed, defaultCurrency)} flat fee/mo`
     : 'No platform fee set';
 
   return (
@@ -95,9 +92,9 @@ export default function OwnerAnalyticsPage() {
 
       {/* KPI row */}
       <div className="grid-4" style={{ marginBottom: 32 }}>
-        <KpiCard label="Gross / month" value={`$${grossMonthly.toLocaleString()}`} sub="Active contracts" color="var(--teal)" />
-        <KpiCard label="Platform fee" value={`-$${totalFee.toLocaleString()}`} sub={feeLabel} color="#f59e0b" />
-        <KpiCard label="Net / month" value={`$${netMonthly.toLocaleString()}`} sub="After platform fee" color="#1d4ed8" />
+        <KpiCard label="Gross / month" value={formatCurrency(grossMonthly, defaultCurrency)} sub={`${defaultCurrency} contracts`} color="var(--teal)" />
+        <KpiCard label="Platform fee" value={formatCurrency(-totalFee, defaultCurrency)} sub={feeLabel} color="#f59e0b" />
+        <KpiCard label="Net / month" value={formatCurrency(netMonthly, defaultCurrency)} sub="After platform fee" color="#1d4ed8" />
         <KpiCard label="Occupancy" value={`${occupancyRate}%`} sub={`${occupied.length} / ${properties.length} properties`} color={occupancyRate >= 75 ? 'var(--teal)' : '#f59e0b'} />
       </div>
 
@@ -124,7 +121,7 @@ export default function OwnerAnalyticsPage() {
             {projection.map((m, i) => (
               <div key={i} style={S.barGroup}>
                 <div style={S.barLabels}>
-                  <span style={S.barValue}>{m.gross > 0 ? `$${(m.gross / 1000).toFixed(1)}k` : '—'}</span>
+                  <span style={S.barValue}>{m.gross > 0 ? `${getCurrencySymbol(defaultCurrency)}${(m.gross / 1000).toFixed(1)}k` : '—'}</span>
                 </div>
                 <div style={S.bars}>
                   {/* Gross bar */}
@@ -153,9 +150,9 @@ export default function OwnerAnalyticsPage() {
                 {projection.slice(0, 6).map((m, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={S.td}>{m.label}</td>
-                    <td style={{ ...S.td, color: 'var(--teal)', fontWeight: 600 }}>${m.gross.toLocaleString()}</td>
-                    <td style={{ ...S.td, color: '#f59e0b' }}>-${m.feeAmt.toLocaleString()}</td>
-                    <td style={{ ...S.td, color: '#1d4ed8', fontWeight: 600 }}>${m.net2.toLocaleString()}</td>
+                    <td style={{ ...S.td, color: 'var(--teal)', fontWeight: 600 }}>{formatCurrency(m.gross, defaultCurrency)}</td>
+                    <td style={{ ...S.td, color: '#f59e0b' }}>-{formatCurrency(m.feeAmt, defaultCurrency)}</td>
+                    <td style={{ ...S.td, color: '#1d4ed8', fontWeight: 600 }}>{formatCurrency(m.net2, defaultCurrency)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -175,7 +172,7 @@ export default function OwnerAnalyticsPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                   <span style={{ fontSize: '0.88rem', fontWeight: 500, color: 'var(--text-primary)' }}>{cat}</span>
                   <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    {info.count} propert{info.count !== 1 ? 'ies' : 'y'} · ${info.income.toLocaleString()}/mo
+                    {info.count} propert{info.count !== 1 ? 'ies' : 'y'} · {formatCurrency(info.income, defaultCurrency)}/mo
                   </span>
                 </div>
                 <Bar value={info.count} max={properties.length} color="var(--teal)" />
@@ -192,7 +189,7 @@ export default function OwnerAnalyticsPage() {
           <div style={S.cardTitle}>Property Performance</div>
           <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
             {properties.map(p => {
-              const contract = activeContracts.find(c => c.propertyId === p.id);
+              const contract = activeContracts.find(c => c.propertyId === p.id && c.currency === defaultCurrency);
               const gross = contract?.rentAmount ?? 0;
               const fee = calcFee(gross, serviceFee);
               const net = gross - fee;
@@ -205,7 +202,7 @@ export default function OwnerAnalyticsPage() {
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     {gross > 0 ? (
                       <>
-                        <div style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--teal)' }}>${net.toLocaleString()}</div>
+                        <div style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--teal)' }}>{formatCurrency(net, defaultCurrency)}</div>
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>net/mo</div>
                       </>
                     ) : (
@@ -230,10 +227,10 @@ export default function OwnerAnalyticsPage() {
         <div className="card" style={{ padding: 24 }}>
           <div style={S.cardTitle}>Annual Summary</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginTop: 16 }}>
-            <SummaryItem label="12-mo Gross" value={`$${projection.reduce((s, m) => s + m.gross, 0).toLocaleString()}`} />
-            <SummaryItem label="12-mo Platform Fees" value={`-$${projection.reduce((s, m) => s + m.feeAmt, 0).toLocaleString()}`} neg />
-            <SummaryItem label="12-mo Net" value={`$${projection.reduce((s, m) => s + m.net2, 0).toLocaleString()}`} highlight />
-            <SummaryItem label="Avg monthly net" value={`$${Math.round(projection.reduce((s, m) => s + m.net2, 0) / 12).toLocaleString()}`} />
+            <SummaryItem label="12-mo Gross" value={formatCurrency(projection.reduce((s, m) => s + m.gross, 0), defaultCurrency)} />
+            <SummaryItem label="12-mo Platform Fees" value={`-${formatCurrency(projection.reduce((s, m) => s + m.feeAmt, 0), defaultCurrency)}`} neg />
+            <SummaryItem label="12-mo Net" value={formatCurrency(projection.reduce((s, m) => s + m.net2, 0), defaultCurrency)} highlight />
+            <SummaryItem label="Avg monthly net" value={formatCurrency(Math.round(projection.reduce((s, m) => s + m.net2, 0) / 12), defaultCurrency)} />
           </div>
         </div>
       )}

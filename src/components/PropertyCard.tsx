@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useLang } from '../contexts/LanguageContext';
+import { formatCurrency } from '../utils/format';
 import type { Property, Currency } from '../types';
 
 interface Props {
@@ -8,11 +9,6 @@ interface Props {
   onEdit?: (p: Property) => void;
   onDelete?: (id: string) => void;
   onTogglePublic?: (p: Property) => void;
-}
-
-function formatPrice(price: number, currency: Currency = 'USD') {
-  if (currency === 'RWF') return `${price.toLocaleString()} RWF`;
-  return `$${price.toLocaleString()}`;
 }
 
 export default function PropertyCard({ property, showActions, onEdit, onDelete, onTogglePublic }: Props) {
@@ -54,7 +50,7 @@ export default function PropertyCard({ property, showActions, onEdit, onDelete, 
         </Link>
 
         <div style={S.priceRow}>
-          <span style={S.price}>{formatPrice(property.price, currency)}</span>
+          <span style={S.price}>{formatCurrency(property.price, currency)}</span>
           <span style={S.pricePer}>{t('perMonth')}</span>
         </div>
 

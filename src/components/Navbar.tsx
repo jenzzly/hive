@@ -231,7 +231,6 @@ export default function Navbar() {
     const r = userProfile?.role;
     if (r === 'superAdmin') return [
       { to: '/super-admin', label: '👑 ' + t('superAdmin') },
-      { to: '/dashboard', label: '🏠 ' + t('dashboard') },
       { to: '/platform-analytics', label: '📊 Analytics' },
     ];
     if (r === 'admin') return [

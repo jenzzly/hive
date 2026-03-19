@@ -113,7 +113,7 @@ function HexLogo() {
         <path d="M14 0L28 8V24L14 32L0 24V8L14 0Z" fill="var(--teal)" />
         <path d="M14 6L22 11V21L14 26L6 21V11L14 6Z" fill="white" opacity="0.3" />
       </svg>
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', color: 'var(--teal-deeper)' }}>Terra</div>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', color: 'var(--teal-deeper)' }}>TerraViser</div>
     </div>
   );
 }

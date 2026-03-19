@@ -4,10 +4,12 @@ import { getPlatformAnalytics, savePlatformSettings, calcFee } from '../services
 import type { PlatformAnalytics } from '../services/analyticsService';
 import type { PlatformSettings } from '../types';
 import { useToast } from '../hooks/useToast';
+import { useSettings } from '../contexts/SettingsContext';
+import { formatCurrency, getCurrencySymbol } from '../utils/format';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-function buildProjection(data: PlatformAnalytics, count = 12) {
+function buildProjection(data: PlatformAnalytics, defaultCurrency: string, count = 12) {
   const now = new Date();
   return Array.from({ length: count }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
@@ -16,6 +18,7 @@ function buildProjection(data: PlatformAnalytics, count = 12) {
     let fees = 0;
     data.contracts.forEach(c => {
       if (c.status !== 'active') return;
+      if (c.currency !== defaultCurrency) return;
       const s = new Date(c.startDate);
       const e = new Date(c.endDate);
       if (d >= s && d <= e) {
@@ -95,6 +98,7 @@ function StatusChip({ status }: { status: string }) {
 export default function PlatformAnalyticsPage() {
   const { userProfile } = useAuth();
   const { show, ToastContainer } = useToast();
+  const { defaultCurrency } = useSettings();
   const [data, setData] = useState<PlatformAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -167,11 +171,11 @@ export default function PlatformAnalyticsPage() {
   const occupied = properties.filter(p => p.status === 'occupied');
   const publicProps = properties.filter(p => p.isPublic && p.status === 'available');
 
-  const grossMRR = activeContracts.reduce((s, c) => s + c.rentAmount, 0);
-  const feesMRR = activeContracts.reduce((s, c) => s + calcFee(c.rentAmount, serviceFee), 0);
+  const grossMRR = activeContracts.filter(c => (c.currency || 'USD') === defaultCurrency).reduce((s, c) => s + c.rentAmount, 0);
+  const feesMRR = activeContracts.filter(c => (c.currency || 'USD') === defaultCurrency).reduce((s, c) => s + calcFee(c.rentAmount, serviceFee), 0);
   const occupancyRate = properties.length > 0 ? Math.round((occupied.length / properties.length) * 100) : 0;
 
-  const projection = buildProjection(data, 12);
+  const projection = buildProjection(data, defaultCurrency, 12);
   const maxGross = Math.max(...projection.map(m => m.gross), 1);
   const annualGross = projection.reduce((s, m) => s + m.gross, 0);
   const annualFees = projection.reduce((s, m) => s + m.fees, 0);
@@ -184,7 +188,9 @@ export default function PlatformAnalyticsPage() {
     serviceFeeFixed: Number(feeFixed),
     updatedAt: '', updatedBy: '',
   };
-  const previewMRR = activeContracts.reduce((s, c) => s + calcFee(c.rentAmount, previewFee), 0);
+  const previewMRR = activeContracts
+    .filter(c => c.currency === defaultCurrency)
+    .reduce((s, c) => s + calcFee(c.rentAmount, previewFee), 0);
 
   // Category breakdown
   const byCategory: Record<string, { count: number; gross: number; owners: Set<string> }> = {};
@@ -193,7 +199,7 @@ export default function PlatformAnalyticsPage() {
     if (!byCategory[cat]) byCategory[cat] = { count: 0, gross: 0, owners: new Set() };
     byCategory[cat].count++;
     byCategory[cat].owners.add(p.ownerId);
-    const c = activeContracts.find(ac => ac.propertyId === p.id);
+    const c = activeContracts.find(ac => ac.propertyId === p.id && ac.currency === defaultCurrency);
     if (c) byCategory[cat].gross += c.rentAmount;
   });
 
@@ -201,15 +207,16 @@ export default function PlatformAnalyticsPage() {
   const topProps = [...properties]
     .map(p => ({
       ...p,
-      income: activeContracts.find(c => c.propertyId === p.id)?.rentAmount ?? 0,
+      income: activeContracts.find(c => c.propertyId === p.id && c.currency === defaultCurrency)?.rentAmount ?? 0,
     }))
+    .filter(p => p.income > 0)
     .sort((a, b) => b.income - a.income)
     .slice(0, 10);
 
   const feeLabel = serviceFee
     ? serviceFee.serviceFeeType === 'percent'
       ? `${serviceFee.serviceFeePercent}% of rent`
-      : `$${serviceFee.serviceFeeFixed} flat/mo`
+      : `${formatCurrency(serviceFee.serviceFeeFixed, defaultCurrency)} flat/mo`
     : 'Not set';
 
   return (
@@ -227,8 +234,8 @@ export default function PlatformAnalyticsPage() {
 
       {/* KPI cards */}
       <div className="grid-4" style={{ marginBottom: 28 }}>
-        <KpiCard label="Platform MRR" value={`$${grossMRR.toLocaleString()}`} sub={`${activeContracts.length} active contracts`} color="var(--teal)" icon="💰" />
-        <KpiCard label="Fee revenue / mo" value={`$${feesMRR.toLocaleString()}`} sub={`Current: ${feeLabel}`} color="#7c3aed" icon="🏦" />
+        <KpiCard label="Platform MRR" value={formatCurrency(grossMRR, defaultCurrency)} sub={`${activeContracts.length} contracts`} color="var(--teal)" icon="💰" />
+        <KpiCard label="Fee revenue / mo" value={formatCurrency(feesMRR, defaultCurrency)} sub={`Current: ${feeLabel}`} color="#7c3aed" icon="🏦" />
         <KpiCard label="Occupancy rate" value={`${occupancyRate}%`} sub={`${occupied.length} occupied · ${publicProps.length} public listings`} color={occupancyRate >= 75 ? 'var(--teal)' : '#f59e0b'} icon="🏠" />
         <KpiCard label="Total users" value={String(totalUsers)} sub={`${properties.length} properties on platform`} color="#1d4ed8" icon="👥" />
       </div>
@@ -242,10 +249,10 @@ export default function PlatformAnalyticsPage() {
             <div style={{ background: '#f5f3ff', borderRadius: 10, padding: '14px 16px', marginBottom: 20, border: '1px solid #e9d5ff' }}>
               <div style={{ fontSize: '0.7rem', color: '#7c3aed', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Currently active</div>
               <div style={{ fontWeight: 700, fontSize: '1.2rem', color: '#7c3aed' }}>
-                {serviceFee.serviceFeeType === 'percent' ? `${serviceFee.serviceFeePercent}% of rent` : `$${serviceFee.serviceFeeFixed} flat / month`}
+                {serviceFee.serviceFeeType === 'percent' ? `${serviceFee.serviceFeePercent}% of rent` : `${formatCurrency(serviceFee.serviceFeeFixed, defaultCurrency)} flat / month`}
               </div>
               <div style={{ fontSize: '0.75rem', color: '#9f74da', marginTop: 4 }}>
-                Collecting ~${feesMRR.toLocaleString()}/mo · ~${(feesMRR * 12).toLocaleString()}/yr
+                Collecting ~{formatCurrency(feesMRR, defaultCurrency)}/mo · ~{formatCurrency(feesMRR * 12, defaultCurrency)}/yr
               </div>
             </div>
           )}
@@ -302,16 +309,16 @@ export default function PlatformAnalyticsPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div>
                     <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Monthly revenue</div>
-                    <div style={{ fontWeight: 700, color: '#7c3aed', fontSize: '1.1rem' }}>${previewMRR.toLocaleString()}</div>
+                    <div style={{ fontWeight: 700, color: '#7c3aed', fontSize: '1.1rem' }}>{formatCurrency(previewMRR, defaultCurrency)}</div>
                   </div>
                   <div>
                     <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Annual revenue</div>
-                    <div style={{ fontWeight: 700, color: '#7c3aed', fontSize: '1.1rem' }}>${(previewMRR * 12).toLocaleString()}</div>
+                    <div style={{ fontWeight: 700, color: '#7c3aed', fontSize: '1.1rem' }}>{formatCurrency(previewMRR * 12, defaultCurrency)}</div>
                   </div>
                 </div>
                 {feesMRR !== previewMRR && (
                   <div style={{ marginTop: 8, fontSize: '0.75rem', color: previewMRR > feesMRR ? '#059669' : '#dc2626' }}>
-                    {previewMRR > feesMRR ? '▲' : '▼'} ${Math.abs(previewMRR - feesMRR).toLocaleString()}/mo vs current
+                    {previewMRR > feesMRR ? '▲' : '▼'} {formatCurrency(Math.abs(previewMRR - feesMRR), defaultCurrency)}/mo vs current
                   </div>
                 )}
               </div>
@@ -385,7 +392,7 @@ export default function PlatformAnalyticsPage() {
                       <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>{cat}</span>
                       <div style={{ display: 'flex', gap: 10 }}>
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{info.count} props · {info.owners.size} owners</span>
-                        <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--teal)' }}>${info.gross.toLocaleString()}/mo</span>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--teal)' }}>{formatCurrency(info.gross, defaultCurrency)}/mo</span>
                       </div>
                     </div>
                     <MiniBar pct={(info.count / properties.length) * 100} color="var(--teal)" />
@@ -417,14 +424,8 @@ export default function PlatformAnalyticsPage() {
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>📍 {p.location}</div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    {p.income > 0 ? (
-                      <>
-                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--teal)' }}>${p.income.toLocaleString()}</div>
-                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>fee: ${calcFee(p.income, serviceFee).toLocaleString()}</div>
-                      </>
-                    ) : (
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>No contract</span>
-                    )}
+                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--teal)' }}>{formatCurrency(p.income, defaultCurrency)}</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>fee: {formatCurrency(calcFee(p.income, serviceFee), defaultCurrency)}</div>
                     <StatusChip status={p.status} />
                   </div>
                 </div>
@@ -450,13 +451,13 @@ export default function PlatformAnalyticsPage() {
                 <tr key={i} style={{ borderBottom: '1px solid var(--border)', background: i % 2 === 1 ? 'var(--surface2)' : '#fff' }}>
                   <td style={TS.td}>{m.label}</td>
                   <td style={{ ...TS.td, fontWeight: 600, color: 'var(--teal)' }}>
-                    {m.gross > 0 ? `$${m.gross.toLocaleString()}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                    {m.gross > 0 ? formatCurrency(m.gross, defaultCurrency) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                   </td>
                   <td style={{ ...TS.td, fontWeight: 600, color: '#7c3aed' }}>
-                    {m.fees > 0 ? `$${m.fees.toLocaleString()}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                    {m.fees > 0 ? formatCurrency(m.fees, defaultCurrency) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                   </td>
                   <td style={{ ...TS.td, color: 'var(--text-secondary)' }}>
-                    {m.net > 0 ? `$${m.net.toLocaleString()}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                    {m.net > 0 ? formatCurrency(m.net, defaultCurrency) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                   </td>
                 </tr>
               ))}
@@ -464,9 +465,9 @@ export default function PlatformAnalyticsPage() {
             <tfoot>
               <tr style={{ background: 'var(--surface2)', borderTop: '2px solid var(--border-strong)' }}>
                 <td style={{ ...TS.td, fontWeight: 700, color: 'var(--text-primary)' }}>Total</td>
-                <td style={{ ...TS.td, fontWeight: 700, color: 'var(--teal)' }}>${annualGross.toLocaleString()}</td>
-                <td style={{ ...TS.td, fontWeight: 700, color: '#7c3aed' }}>${annualFees.toLocaleString()}</td>
-                <td style={{ ...TS.td, fontWeight: 700, color: 'var(--text-primary)' }}>${annualNet.toLocaleString()}</td>
+                <td style={{ ...TS.td, fontWeight: 700, color: 'var(--teal)' }}>{formatCurrency(annualGross, defaultCurrency)}</td>
+                <td style={{ ...TS.td, fontWeight: 700, color: '#7c3aed' }}>{formatCurrency(annualFees, defaultCurrency)}</td>
+                <td style={{ ...TS.td, fontWeight: 700, color: 'var(--text-primary)' }}>{formatCurrency(annualNet, defaultCurrency)}</td>
               </tr>
             </tfoot>
           </table>
