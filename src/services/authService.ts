@@ -4,6 +4,8 @@ import {
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
+  verifyPasswordResetCode,
+  confirmPasswordReset,
   type User as FirebaseUser,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
@@ -63,5 +65,13 @@ export const resetPassword = async (email: string): Promise<void> => {
   await sendPasswordResetEmail(auth, email, {
     url: 'http://terraviser.com/account_reset',
   });
+};
+
+export const verifyResetCode = async (code: string): Promise<string> => {
+  return await verifyPasswordResetCode(auth, code);
+};
+
+export const confirmNewPassword = async (code: string, newPass: string): Promise<void> => {
+  await confirmPasswordReset(auth, code, newPass);
 };
 

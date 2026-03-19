@@ -10,7 +10,7 @@ import { useToast } from '../hooks/useToast';
 import PropertyGallery from '../components/PropertyGallery';
 import ContractViewer from '../components/ContractViewer';
 import MaintenanceForm from '../components/MaintenanceForm';
-import type { Property, Contract, MaintenanceRequest, RentPayment, ReimbursementRequest } from '../types';
+import type { Property, Contract, MaintenanceRequest, RentPayment, ReimbursementRequest, Currency } from '../types';
 import { useSettings } from '../contexts/SettingsContext';
 import { formatCurrency } from '../utils/format';
 
@@ -55,7 +55,7 @@ export default function TenantDashboard() {
 
   // Pay form
   const [showPayForm, setShowPayForm] = useState(false);
-  const [payForm, setPayForm] = useState<{ month: string; amount: string; notes: string; propertyId: string; currency: string }>({ month: '', amount: '', notes: '', propertyId: '', currency: defaultCurrency || 'USD' });
+  const [payForm, setPayForm] = useState<{ month: string; amount: string; notes: string; propertyId: string; currency: Currency }>({ month: '', amount: '', notes: '', propertyId: '', currency: (defaultCurrency as Currency) || 'USD' });
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [payLoading, setPayLoading] = useState(false);
 
@@ -276,7 +276,7 @@ export default function TenantDashboard() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Currency</label>
-                  <select className="form-input" value={payForm.currency} onChange={e => setPayForm(f => ({ ...f, currency: e.target.value }))} required>
+                  <select className="form-input" value={payForm.currency} onChange={e => setPayForm(f => ({ ...f, currency: e.target.value as Currency }))} required>
                     <option value="USD">USD ($)</option>
                     <option value="RWF">RWF (FRW)</option>
                   </select>

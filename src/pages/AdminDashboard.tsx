@@ -9,6 +9,10 @@ export default function AdminDashboard() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 9;
+
+  useEffect(() => { setPage(1); }, [search]);
 
   const load = async () => {
     setLoading(true);
@@ -35,6 +39,20 @@ export default function AdminDashboard() {
   const filtered = search
     ? properties.filter(p => p.title.toLowerCase().includes(search.toLowerCase()) || p.location.toLowerCase().includes(search.toLowerCase()))
     : properties;
+
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  function Pagination({ current, total, pageSize, onChange }: { current: number; total: number; pageSize: number; onChange: (p: number) => void }) {
+    const pages = Math.ceil(total / pageSize);
+    if (pages <= 1) return null;
+    return (
+      <div style={{ display: 'flex', gap: 6, marginTop: 40, justifyContent: 'center', alignItems: 'center' }}>
+        <button className="btn btn-ghost btn-sm" disabled={current === 1} onClick={() => onChange(current - 1)}>Prev</button>
+        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Page {current} of {pages}</span>
+        <button className="btn btn-ghost btn-sm" disabled={current === pages} onClick={() => onChange(current + 1)}>Next</button>
+      </div>
+    );
+  }
 
   const stats = {
     total: properties.length,
@@ -76,16 +94,20 @@ export default function AdminDashboard() {
       ) : filtered.length === 0 ? (
         <div className="empty-state"><h3>No properties found</h3></div>
       ) : (
-        <div className="grid-3">
-          {filtered.map(p => (
-            <PropertyCard
-              key={p.id}
-              property={p}
-              showActions
-              onDelete={handleDelete}
-              onTogglePublic={handleTogglePublic}
-            />
-          ))}
+        /* Properties Grid */
+        <div>
+          <div className="grid-3">
+            {paginated.map(p => (
+              <PropertyCard
+                key={p.id}
+                property={p}
+                showActions
+                onDelete={handleDelete}
+                onTogglePublic={handleTogglePublic}
+              />
+            ))}
+          </div>
+          <Pagination current={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
         </div>
       )}
     </div>

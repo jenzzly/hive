@@ -18,6 +18,7 @@ import OwnerAnalyticsPage from './pages/OwnerAnalyticsPage';
 import PlatformAnalyticsPage from './pages/PlatformAnalyticsPage';
 import MessagesPage from './pages/MessagesPage';
 import ForgotPassword from './pages/ForgotPassword';
+import AccountReset from './pages/AccountReset';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 
@@ -54,6 +55,7 @@ function AppRoutes() {
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
           <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+          <Route path="/account_reset" element={<AccountReset />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />
 

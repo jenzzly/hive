@@ -44,6 +44,10 @@ export default function SuperAdminDashboard() {
 
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
+
+  useEffect(() => { setPage(1); }, [tab, search]);
 
   // Modals
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -250,6 +254,18 @@ export default function SuperAdminDashboard() {
     { key: 'settings', label: '⚙ Settings' },
   ];
 
+  function Pagination({ current, total, pageSize, onChange }: { current: number; total: number; pageSize: number; onChange: (p: number) => void }) {
+    const pages = Math.ceil(total / pageSize);
+    if (pages <= 1) return null;
+    return (
+      <div style={{ display: 'flex', gap: 6, marginTop: 20, justifyContent: 'center', alignItems: 'center' }}>
+        <button className="btn btn-ghost btn-sm" disabled={current === 1} onClick={() => onChange(current - 1)}>Prev</button>
+        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Page {current} of {pages}</span>
+        <button className="btn btn-ghost btn-sm" disabled={current === pages} onClick={() => onChange(current + 1)}>Next</button>
+      </div>
+    );
+  }
+
   return (
     <div className="container page">
       <ToastContainer />
@@ -399,140 +415,165 @@ export default function SuperAdminDashboard() {
 
       {loading ? (
         <div className="loading-center"><div className="spinner" /></div>
-      ) : tab === 'users' ? (
-        filter(users, ['name', 'email', 'role']).length === 0 ? <div className="empty-state"><h3>No users found</h3></div> : (
-          <div style={MS.tableWrap}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={MS.table}>
-                <thead><tr>{['User', 'Email', 'Role', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
-                <tbody>
-                  {filter(users, ['name', 'email', 'role']).map(user => (
-                    <tr key={user.id} style={MS.tr}>
-                      <td style={MS.td}><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><div style={MS.avatar}>{user.name.charAt(0).toUpperCase()}</div><span style={{ fontWeight: 500 }}>{user.name}</span></div></td>
-                      <td style={MS.td}><span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>{user.email}</span></td>
-                      <td style={MS.td}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <select value={user.role} onChange={e => handleRoleChange(user.id, e.target.value as UserRole)} style={MS.roleSelect}>
-                            {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                          </select>
-                          <span className={`badge ${ROLE_COLORS[user.role] || 'badge-gray'}`}>{user.role}</span>
-                        </div>
-                      </td>
-                      <td style={MS.td}>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button className="btn btn-secondary btn-sm" onClick={() => { setEditingUser(user); }}>Edit</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteUser(user)}>Delete</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )
-      ) : tab === 'properties' ? (
-        filter(properties, ['title', 'location']).length === 0 ? <div className="empty-state"><h3>No properties found</h3></div> : (
-          <div style={MS.tableWrap}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={MS.table}>
-                <thead><tr>{['Property', 'Price', 'Status', 'Owner', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
-                <tbody>
-                  {filter(properties, ['title', 'location']).map(p => (
-                    <tr key={p.id} style={MS.tr}>
-                      <td style={MS.td}><div style={{ fontWeight: 500 }}>{p.title}</div><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.location}</div></td>
-                      <td style={MS.td}><span style={{ fontWeight: 600 }}>{formatCurrency(p.price, p.currency)}</span></td>
-                      <td style={MS.td}><span className={`badge ${p.status === 'available' ? 'badge-green' : 'badge-amber'}`}>{p.status}</span></td>
-                      <td style={MS.td}><span style={{ fontSize: '0.82rem', fontFamily: 'monospace' }}>{p.ownerId.slice(0, 8)}…</span></td>
-                      <td style={MS.td}>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button className="btn btn-secondary btn-sm" onClick={() => setEditingProperty(p)}>Edit</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteProperty(p.id)}>Delete</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )
-      ) : tab === 'payments' ? (
-        filter(payments, ['month', 'status']).length === 0 ? <div className="empty-state"><h3>No payments found</h3></div> : (
-          <div style={MS.tableWrap}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={MS.table}>
-                <thead><tr>{['Property', 'Month', 'Amount', 'Status', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
-                <tbody>
-                  {filter(payments, ['month', 'status', 'propertyId', 'tenantId']).map(pay => (
-                    <tr key={pay.id} style={MS.tr}>
-                      <td style={MS.td}><span style={{ fontSize: '0.85rem' }}>{properties.find(p => p.id === pay.propertyId)?.title ?? pay.propertyId.slice(0, 8)}</span></td>
-                      <td style={MS.td}><span style={{ fontWeight: 500 }}>{pay.month}</span></td>
-                      <td style={MS.td}><span style={{ fontWeight: 600, color: 'var(--teal)' }}>{formatCurrency(pay.amount, pay.currency || 'RWF')}</span></td>
-                      <td style={MS.td}><PayBadge status={pay.status} /></td>
-                      <td style={MS.td}>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button className="btn btn-secondary btn-sm" onClick={() => setEditingPayment(pay)}>Edit</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDeletePayment(pay.id)}>Delete</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )
-      ) : tab === 'reimbursements' ? (
-        filter(reimbursements, ['title', 'status']).length === 0 ? <div className="empty-state"><h3>No reimbursements found</h3></div> : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {filter(reimbursements, ['title', 'status', 'description']).map(r => (
-              <div key={r.id} className="card" style={{ padding: '16px 20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{r.title}</div>
-                    <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{r.description}</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: 700, color: '#3b82f6' }}>{formatCurrency(r.amount, r.currency || 'USD')}</div>
-                    <ReimbBadge status={r.status} />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                  <button className="btn btn-secondary btn-sm" onClick={() => setEditingReimb(r)}>Edit</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => handleDeleteReimb(r.id)}>Delete</button>
-                </div>
+      ) : tab === 'users' ? (() => {
+        const filtered = filter(users, ['name', 'email', 'role']);
+        const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+        return filtered.length === 0 ? <div className="empty-state"><h3>No users found</h3></div> : (
+          <div>
+            <div style={MS.tableWrap}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={MS.table}>
+                  <thead><tr>{['User', 'Email', 'Role', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {paginated.map(user => (
+                      <tr key={user.id} style={MS.tr}>
+                        <td style={MS.td}><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><div style={MS.avatar}>{user.name.charAt(0).toUpperCase()}</div><span style={{ fontWeight: 500 }}>{user.name}</span></div></td>
+                        <td style={MS.td}><span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>{user.email}</span></td>
+                        <td style={MS.td}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <select value={user.role} onChange={e => handleRoleChange(user.id, e.target.value as UserRole)} style={MS.roleSelect}>
+                              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                            <span className={`badge ${ROLE_COLORS[user.role] || 'badge-gray'}`}>{user.role}</span>
+                          </div>
+                        </td>
+                        <td style={MS.td}>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => { setEditingUser(user); }}>Edit</button>
+                            <button className="btn btn-danger btn-sm" onClick={() => handleDeleteUser(user)}>Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            ))}
-          </div>
-        )
-      ) : tab === 'contracts' ? (
-        filter(contracts, ['status', 'propertyId', 'tenantId']).length === 0 ? <div className="empty-state"><h3>No contracts found</h3></div> : (
-          <div style={MS.tableWrap}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={MS.table}>
-                <thead><tr>{['Property', 'Tenant', 'Rent', 'Status', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
-                <tbody>
-                  {filter(contracts, ['status', 'propertyId', 'tenantId']).map(c => (
-                    <tr key={c.id} style={MS.tr}>
-                      <td style={MS.td}><span style={{ fontSize: '0.85rem' }}>{properties.find(p => p.id === c.propertyId)?.title ?? c.propertyId.slice(0, 8)}</span></td>
-                      <td style={MS.td}><span style={{ fontSize: '0.85rem' }}>{users.find(u => u.id === c.tenantId)?.name ?? c.tenantId.slice(0, 8)}</span></td>
-                      <td style={MS.td}><span style={{ fontWeight: 600 }}>{formatCurrency(c.rentAmount, c.currency)}</span></td>
-                      <td style={MS.td}><span className={`badge ${c.status === 'active' ? 'badge-blue' : 'badge-gray'}`}>{c.status}</span></td>
-                      <td style={MS.td}>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button className="btn btn-secondary btn-sm" onClick={() => setEditingContract(c)}>Edit</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteContract(c.id)}>Delete</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
+            <Pagination current={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
           </div>
-        )
-      ) : (
+        );
+      })() : tab === 'properties' ? (() => {
+        const filtered = filter(properties, ['title', 'location']);
+        const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+        return filtered.length === 0 ? <div className="empty-state"><h3>No properties found</h3></div> : (
+          <div>
+            <div style={MS.tableWrap}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={MS.table}>
+                  <thead><tr>{['Property', 'Price', 'Status', 'Owner', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {paginated.map(p => (
+                      <tr key={p.id} style={MS.tr}>
+                        <td style={MS.td}><div style={{ fontWeight: 500 }}>{p.title}</div><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.location}</div></td>
+                        <td style={MS.td}><span style={{ fontWeight: 600 }}>{formatCurrency(p.price, p.currency)}</span></td>
+                        <td style={MS.td}><span className={`badge ${p.status === 'available' ? 'badge-green' : 'badge-amber'}`}>{p.status}</span></td>
+                        <td style={MS.td}><span style={{ fontSize: '0.82rem', fontFamily: 'monospace' }}>{p.ownerId.slice(0, 8)}…</span></td>
+                        <td style={MS.td}>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => setEditingProperty(p)}>Edit</button>
+                            <button className="btn btn-danger btn-sm" onClick={() => handleDeleteProperty(p.id)}>Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <Pagination current={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
+          </div>
+        );
+      })() : tab === 'payments' ? (() => {
+        const filtered = filter(payments, ['month', 'status', 'propertyId', 'tenantId']);
+        const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+        return filtered.length === 0 ? <div className="empty-state"><h3>No payments found</h3></div> : (
+          <div>
+            <div style={MS.tableWrap}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={MS.table}>
+                  <thead><tr>{['Property', 'Month', 'Amount', 'Status', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {paginated.map(pay => (
+                      <tr key={pay.id} style={MS.tr}>
+                        <td style={MS.td}><span style={{ fontSize: '0.85rem' }}>{properties.find(p => p.id === pay.propertyId)?.title ?? pay.propertyId.slice(0, 8)}</span></td>
+                        <td style={MS.td}><span style={{ fontWeight: 500 }}>{pay.month}</span></td>
+                        <td style={MS.td}><span style={{ fontWeight: 600, color: 'var(--teal)' }}>{formatCurrency(pay.amount, pay.currency || 'RWF')}</span></td>
+                        <td style={MS.td}><PayBadge status={pay.status} /></td>
+                        <td style={MS.td}>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => setEditingPayment(pay)}>Edit</button>
+                            <button className="btn btn-danger btn-sm" onClick={() => handleDeletePayment(pay.id)}>Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <Pagination current={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
+          </div>
+        );
+      })() : tab === 'reimbursements' ? (() => {
+        const filtered = filter(reimbursements, ['title', 'status', 'description']);
+        const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+        return filtered.length === 0 ? <div className="empty-state"><h3>No reimbursements found</h3></div> : (
+          <div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {paginated.map(r => (
+                <div key={r.id} className="card" style={{ padding: '16px 20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{r.title}</div>
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{r.description}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontWeight: 700, color: '#3b82f6' }}>{formatCurrency(r.amount, r.currency || 'USD')}</div>
+                      <ReimbBadge status={r.status} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setEditingReimb(r)}>Edit</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => handleDeleteReimb(r.id)}>Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Pagination current={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
+          </div>
+        );
+      })() : tab === 'contracts' ? (() => {
+        const filtered = filter(contracts, ['status', 'propertyId', 'tenantId']);
+        const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+        return filtered.length === 0 ? <div className="empty-state"><h3>No contracts found</h3></div> : (
+          <div>
+            <div style={MS.tableWrap}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={MS.table}>
+                  <thead><tr>{['Property', 'Tenant', 'Rent', 'Status', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {paginated.map(c => (
+                      <tr key={c.id} style={MS.tr}>
+                        <td style={MS.td}><span style={{ fontSize: '0.85rem' }}>{properties.find(p => p.id === c.propertyId)?.title ?? c.propertyId.slice(0, 8)}</span></td>
+                        <td style={MS.td}><span style={{ fontSize: '0.85rem' }}>{users.find(u => u.id === c.tenantId)?.name ?? c.tenantId.slice(0, 8)}</span></td>
+                        <td style={MS.td}><span style={{ fontWeight: 600 }}>{formatCurrency(c.rentAmount, c.currency)}</span></td>
+                        <td style={MS.td}><span className={`badge ${c.status === 'active' ? 'badge-blue' : 'badge-gray'}`}>{c.status}</span></td>
+                        <td style={MS.td}>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => setEditingContract(c)}>Edit</button>
+                            <button className="btn btn-danger btn-sm" onClick={() => handleDeleteContract(c.id)}>Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <Pagination current={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
+          </div>
+        );
+      })() : (
         /* Settings Tab */
         <div className="card" style={{ padding: 32, maxWidth: 600 }}>
           <h3 style={{ marginBottom: 20 }}>Platform Global Settings</h3>
