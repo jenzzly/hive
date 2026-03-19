@@ -9,6 +9,8 @@ export interface User {
   role: UserRole;
   language?: Language;
   location?: string;
+  platformFee?: number; // Custom platform fee for owners (e.g. 5 for 5%)
+  services?: string[]; // Array of services e.g. ['Legal', 'Maintenance', 'Tax']
   createdAt: string;
 }
 
@@ -41,6 +43,9 @@ export interface Property {
   price: number;
   currency: Currency;            // USD or RWF
   location: string;
+  latitude?: number;
+  longitude?: number;
+  googlePlaceId?: string;
   amenities: string[];
   images: string[];
   ownerId: string;
@@ -65,6 +70,8 @@ export interface Contract {
   contractDocumentURL?: string;
   status: ContractStatus;
   noticeDate?: string;
+  lateFeePercent?: number; // e.g. 2 for 2%
+  lateFeeGraceDays?: number; // e.g. 5 days after due date
   createdAt: string;
 }
 
@@ -83,6 +90,8 @@ export interface MaintenanceRequest {
   createdAt: string;
   resolvedAt?: string;
   repairCost?: number;
+  ownerComment?: string;
+  timeline?: string; // Estimated timeline, e.g. "Expected completion: Friday"
 }
 
 export type BookingStatus = 'pending' | 'approved' | 'rejected';

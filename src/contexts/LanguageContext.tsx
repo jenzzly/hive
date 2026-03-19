@@ -15,7 +15,8 @@ type TranslationKey =
   | 'name' | 'email' | 'password' | 'language' | 'saveChanges' | 'userSettings'
   | 'changePassword' | 'newPassword' | 'confirmPassword' | 'profileUpdated'
   | 'passwordUpdated' | 'english' | 'french' | 'kinyarwanda' | 'forgotPassword'
-  | 'sendResetLink' | 'resetEmailSent' | 'backToLogin' | 'resetPassword' | 'prev' | 'next' | 'messages';
+  | 'sendResetLink' | 'resetEmailSent' | 'backToLogin' | 'resetPassword' | 'prev' | 'next' | 'messages'
+  | 'propertyLocation' | 'openInMap';
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -51,6 +52,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     sendResetLink: 'Send Reset Link', resetEmailSent: 'Reset link sent! Check your email.',
     backToLogin: 'Back to Login', resetPassword: 'Reset Password',
     prev: 'Prev', next: 'Next', messages: 'Messages',
+    propertyLocation: 'Property Location', openInMap: 'Open in Full Map',
   },
   fr: {
     browse: 'Parcourir', dashboard: 'Tableau de bord', myProperty: 'Ma Propriété',
@@ -85,6 +87,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     sendResetLink: 'Envoyer le lien', resetEmailSent: 'Lien envoyé ! Vérifiez vos emails.',
     backToLogin: 'Retour à la connexion', resetPassword: 'Réinitialiser',
     prev: 'Précédent', next: 'Suivant', messages: 'Messages',
+    propertyLocation: 'Localisation du bien', openInMap: 'Ouvrir la carte',
   },
   rw: {
     browse: 'Reba', dashboard: 'Ikibaho', myProperty: 'Inzu Yanjye',
@@ -119,6 +122,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     sendResetLink: 'Ohereza ihuzanshu', resetEmailSent: 'Ihuza ryo guhindura ryoherejwe! Reba imeyili yawe.',
     backToLogin: 'Subira aho winjirira', resetPassword: 'Hindura ijambo ry\'ibanga',
     prev: 'Ibanze', next: 'Imbere', messages: 'Ubutumwa',
+    propertyLocation: 'Aho inzu iherereye', openInMap: 'Fungura ikarita',
   },
 };
 

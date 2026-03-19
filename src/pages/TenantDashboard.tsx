@@ -432,8 +432,16 @@ export default function TenantDashboard() {
                         <span className={`badge badge-${req.priority === 'urgent' ? 'red' : req.priority === 'high' ? 'amber' : 'gray'}`}>{req.priority}</span>
                       </div>
                     </div>
+                    {req.timeline && (
+                      <div style={{ marginTop: 8, fontSize: '0.78rem', color: 'var(--terra-600)', fontWeight: 600 }}>🛠️ Timeline: {req.timeline}</div>
+                    )}
+                    {req.ownerComment && (
+                      <div style={{ marginTop: 8, fontSize: '0.8rem', color: 'var(--text-secondary)', fontStyle: 'italic', background: 'var(--surface2)', padding: '6px 12px', borderRadius: 8 }}>
+                        💬 Owner: {req.ownerComment}
+                      </div>
+                    )}
                     {req.repairCost && (
-                      <div style={{ marginTop: 8, fontSize: '0.78rem', color: '#ef4444', fontWeight: 600 }}>Repair cost logged: {formatCurrency(req.repairCost, defaultCurrency)}</div>
+                      <div style={{ marginTop: 8, fontSize: '0.78rem', color: '#ef4444', fontWeight: 600 }}>Repair cost: {formatCurrency(req.repairCost, defaultCurrency)}</div>
                     )}
                   </div>
                 ))}

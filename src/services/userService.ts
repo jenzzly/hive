@@ -22,7 +22,7 @@ export const updateUserRole = async (userId: string, role: UserRole): Promise<vo
 
 export const updateUserProfile = async (
   userId: string,
-  data: Partial<Pick<User, 'name' | 'email' | 'language' | 'location'>>
+  data: Partial<User>
 ): Promise<void> => {
   await updateDoc(doc(db, COL, userId), data);
 };

@@ -9,6 +9,7 @@ import { getOrCreateConversation } from '../services/messageService';
 import { useAuth } from '../contexts/AuthContext';
 import { useLang } from '../contexts/LanguageContext';
 import PropertyGallery from '../components/PropertyGallery';
+import PropertyMap from '../components/PropertyMap';
 import { useSettings } from '../contexts/SettingsContext';
 import { formatCurrency } from '../utils/format';
 import type { Property, User } from '../types';
@@ -308,6 +309,34 @@ export default function PropertyDetail() {
                   </div>
                 </div>
               )}
+
+            {/* Property Map Section */}
+            <div style={{ marginTop: 32, borderTop: '1px solid var(--border)', paddingTop: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem' }}>📍 {t('propertyLocation') || 'Property Location'}</h3>
+                {property.latitude && property.longitude && (
+                  <a 
+                    href={`https://www.openstreetmap.org/?mlat=${property.latitude}&mlon=${property.longitude}#map=16/${property.latitude}/${property.longitude}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-ghost btn-sm"
+                    style={{ color: 'var(--teal)', fontWeight: 600 }}
+                  >
+                    {t('openInMap') || 'Open in Full Map'} ↗
+                  </a>
+                )}
+              </div>
+              
+              <PropertyMap 
+                lat={property.latitude} 
+                lng={property.longitude} 
+                height={320} 
+              />
+              
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>📍</span> {property.location}
+              </p>
+            </div>
           </div>
         </div>
 

@@ -5,13 +5,14 @@ import { getAllPayments, updatePaymentStatus, deletePayment, updatePayment, crea
 import { getAllReimbursements, updateReimbursementStatus, deleteReimbursement, updateReimbursement, createReimbursementRequest } from '../services/reimbursementService';
 import { getAllContracts, deleteContract, updateContract, createContract } from '../services/contractService';
 import { getPlatformConfig, updatePlatformConfig, type PlatformConfig } from '../services/settingsService';
+import SuperAdminAnalytics from '../components/SuperAdminAnalytics';
 import { useToast } from '../hooks/useToast';
 import { useLang } from '../contexts/LanguageContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { formatCurrency } from '../utils/format';
 import type { User, UserRole, Property, RentPayment, ReimbursementRequest, Contract, Currency, PropertyCategory, PropertyType, ContractStatus, ReimbursementStatus, PaymentStatus } from '../types';
 
-type Tab = 'users' | 'properties' | 'payments' | 'reimbursements' | 'contracts' | 'settings';
+type Tab = 'users' | 'properties' | 'payments' | 'reimbursements' | 'contracts' | 'analytics' | 'settings';
 
 const ROLES: UserRole[] = ['visitor', 'tenant', 'owner', 'admin', 'superAdmin'];
 const ROLE_COLORS: Record<string, string> = {
@@ -120,7 +121,7 @@ export default function SuperAdminDashboard() {
     if (!editingUser) return;
     setSaving(true);
     try {
-      await updateUserProfile(editingUser.id, { name: editingUser.name });
+      await updateUserProfile(editingUser.id, editingUser);
       show('Updated.');
       setEditingUser(null);
       await load();
@@ -251,6 +252,7 @@ export default function SuperAdminDashboard() {
     { key: 'payments', label: '💳 Payments', badge: stats.pendingPay },
     { key: 'reimbursements', label: '↩ Reimbursements', badge: stats.pendingReimb },
     { key: 'contracts', label: '📜 Contracts' },
+    { key: 'analytics', label: '📊 Analytics' },
     { key: 'settings', label: '⚙ Settings' },
   ];
 
@@ -306,6 +308,40 @@ export default function SuperAdminDashboard() {
             <div className="form-group"><label className="form-label">Name</label>
               <input className="form-input" value={editingUser.name} onChange={e => setEditingUser({ ...editingUser, name: e.target.value })} />
             </div>
+            {editingUser.role === 'owner' && (
+              <div className="form-group" style={{ marginTop: 12 }}>
+                <label className="form-label">Platform Fee (%)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={editingUser.platformFee || 0}
+                  onChange={e => setEditingUser({ ...editingUser, platformFee: Number(e.target.value) })}
+                  placeholder="e.g. 5"
+                />
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>Service fee charged by the platform for this owner.</p>
+              </div>
+            )}
+            {editingUser.role === 'owner' && (
+              <div style={{ marginTop: 16 }}>
+                <label className="form-label" style={{ marginBottom: 8 }}>Owner Package / Services</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {['Legal', 'Maintenance', 'Tax Services', 'Marketing'].map(srv => (
+                    <label key={srv} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', cursor: 'pointer' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={(editingUser.services || []).includes(srv)} 
+                        onChange={e => {
+                          const svcs = editingUser.services || [];
+                          const next = e.target.checked ? [...svcs, srv] : svcs.filter(s => s !== srv);
+                          setEditingUser({ ...editingUser, services: next });
+                        }}
+                      />
+                      {srv}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
               <button type="button" className="btn btn-ghost" onClick={() => setEditingUser(null)}>Cancel</button>
@@ -327,6 +363,12 @@ export default function SuperAdminDashboard() {
               </div>
               <div className="form-group"><label className="form-label">Location</label>
                 <input className="form-input" required value={editingProperty.location || ''} onChange={e => setEditingProperty({ ...editingProperty, location: e.target.value })} />
+              </div>
+              <div className="form-group"><label className="form-label">Latitude</label>
+                <input className="form-input" type="number" step="any" value={editingProperty.latitude || ''} onChange={e => setEditingProperty({ ...editingProperty, latitude: Number(e.target.value) })} />
+              </div>
+              <div className="form-group"><label className="form-label">Longitude</label>
+                <input className="form-input" type="number" step="any" value={editingProperty.longitude || ''} onChange={e => setEditingProperty({ ...editingProperty, longitude: Number(e.target.value) })} />
               </div>
               <div className="form-group"><label className="form-label">Owner ID</label>
                 <input className="form-input" required value={editingProperty.ownerId || ''} onChange={e => setEditingProperty({ ...editingProperty, ownerId: e.target.value })} />
@@ -382,6 +424,12 @@ export default function SuperAdminDashboard() {
                   <option value="expired">Expired</option>
                 </select>
               </div>
+              <div className="form-group"><label className="form-label">Late Fee (%)</label>
+                <input type="number" className="form-input" value={editingContract.lateFeePercent || 0} onChange={e => setEditingContract({ ...editingContract, lateFeePercent: Number(e.target.value) })} />
+              </div>
+              <div className="form-group"><label className="form-label">Grace Period (Days)</label>
+                <input type="number" className="form-input" value={editingContract.lateFeeGraceDays || 0} onChange={e => setEditingContract({ ...editingContract, lateFeeGraceDays: Number(e.target.value) })} />
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
@@ -423,11 +471,23 @@ export default function SuperAdminDashboard() {
             <div style={MS.tableWrap}>
               <div style={{ overflowX: 'auto' }}>
                 <table style={MS.table}>
-                  <thead><tr>{['User', 'Email', 'Role', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
+                  <thead><tr>{['User', 'Email', 'Role', 'Fee %', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
                   <tbody>
                     {paginated.map(user => (
                       <tr key={user.id} style={MS.tr}>
-                        <td style={MS.td}><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><div style={MS.avatar}>{user.name.charAt(0).toUpperCase()}</div><span style={{ fontWeight: 500 }}>{user.name}</span></div></td>
+                        <td style={MS.td}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={MS.avatar}>{user.name.charAt(0).toUpperCase()}</div>
+                            <div>
+                              <div style={{ fontWeight: 500 }}>{user.name}</div>
+                              {user.services && user.services.length > 0 && (
+                                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                                  {user.services.map((s: string) => <span key={s} style={{ fontSize: '0.6rem', padding: '1px 5px', borderRadius: 4, background: 'var(--surface2)', color: 'var(--text-muted)' }}>{s}</span>)}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
                         <td style={MS.td}><span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>{user.email}</span></td>
                         <td style={MS.td}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -436,6 +496,13 @@ export default function SuperAdminDashboard() {
                             </select>
                             <span className={`badge ${ROLE_COLORS[user.role] || 'badge-gray'}`}>{user.role}</span>
                           </div>
+                        </td>
+                        <td style={MS.td}>
+                          {user.role === 'owner' ? (
+                            <span style={{ fontWeight: 600, color: 'var(--teal)' }}>{user.platformFee ?? 0}%</span>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>—</span>
+                          )}
                         </td>
                         <td style={MS.td}>
                           <div style={{ display: 'flex', gap: 6 }}>
@@ -573,7 +640,9 @@ export default function SuperAdminDashboard() {
             <Pagination current={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
           </div>
         );
-      })() : (
+      })() : tab === 'analytics' ? (
+        <SuperAdminAnalytics />
+      ) : (
         /* Settings Tab */
         <div className="card" style={{ padding: 32, maxWidth: 600 }}>
           <h3 style={{ marginBottom: 20 }}>Platform Global Settings</h3>

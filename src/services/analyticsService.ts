@@ -30,15 +30,18 @@ export const savePlatformSettings = async (
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────
-export const calcFee = (price: number, s: PlatformSettings | null): number => {
+export const calcFee = (price: number, s: PlatformSettings | null, customPercent?: number): number => {
+  if (customPercent !== undefined) {
+    return Math.round(price * customPercent / 100 * 100) / 100;
+  }
   if (!s) return 0;
   if (s.serviceFeeType === 'percent')
     return Math.round(price * s.serviceFeePercent / 100 * 100) / 100;
   return s.serviceFeeFixed;
 };
 
-export const calcNet = (price: number, s: PlatformSettings | null): number =>
-  Math.max(0, price - calcFee(price, s));
+export const calcNet = (price: number, s: PlatformSettings | null, customPercent?: number): number =>
+  Math.max(0, price - calcFee(price, s, customPercent));
 
 function normProp(d: any): Property {
   const data = d.data();
@@ -78,6 +81,7 @@ export const getOwnerAnalytics = async (ownerId: string): Promise<OwnerAnalytics
 export interface PlatformAnalytics {
   properties: Property[];
   contracts: Contract[];
+  users: any[];
   totalUsers: number;
   serviceFee: PlatformSettings | null;
 }
@@ -92,6 +96,7 @@ export const getPlatformAnalytics = async (): Promise<PlatformAnalytics> => {
 
   const properties = propSnap.docs.map(normProp);
   const contracts = contractSnap.docs.map(normContract);
+  const users = userSnap.docs.map(d => ({ ...d.data(), id: d.id }));
 
-  return { properties, contracts, totalUsers: userSnap.size, serviceFee: fee };
+  return { properties, contracts, users, totalUsers: userSnap.size, serviceFee: fee };
 };

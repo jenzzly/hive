@@ -35,6 +35,17 @@ export default function PropertyCard({ property, showActions, onEdit, onDelete, 
         <div style={S.topRow}>
           <span style={S.locationText}>
             <PinIcon /> {property.location}
+            {(property.latitude && property.longitude) && (
+              <a 
+                href={`https://www.openstreetmap.org/?mlat=${property.latitude}&mlon=${property.longitude}#map=16/${property.latitude}/${property.longitude}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{ marginLeft: 4, color: 'var(--teal)', fontWeight: 600 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                Map
+              </a>
+            )}
           </span>
           <span style={{
             ...S.statusBadge,
