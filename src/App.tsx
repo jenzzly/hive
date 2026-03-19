@@ -17,6 +17,8 @@ import OwnerAnalyticsPage from './pages/OwnerAnalyticsPage';
 import PlatformAnalyticsPage from './pages/PlatformAnalyticsPage';
 import MessagesPage from './pages/MessagesPage';
 import ForgotPassword from './pages/ForgotPassword';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
 
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
@@ -39,6 +41,8 @@ function AppRoutes() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
 
 
           {/* Any logged-in user */}

@@ -14,7 +14,11 @@ export default function Footer() {
                     <a href="tel:+250782388933">📞 +250 782 388 933</a>
                 </div>
             </div>
-            <div className="footer-inner" style={{ paddingTop: 0 }}>
+            <div className="footer-inner" style={{ paddingTop: 0, marginTop: 8 }}>
+                <div className="footer-links" style={{ display: 'flex', gap: 20, fontSize: '0.85rem', opacity: 0.8 }}>
+                    <a href="/privacy">Privacy Policy</a>
+                    <a href="/terms">Terms of Service</a>
+                </div>
                 <div className="footer-copy">
                     © {new Date().getFullYear()} Terraviser. All rights reserved.
                 </div>
