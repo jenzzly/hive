@@ -6,10 +6,11 @@ import { getOwnerProperties, createProperty, updateProperty, deleteProperty } fr
 import { getOwnerContracts, createContract, deleteContract, updateContract } from '../services/contractService';
 import { getOwnerRequests, updateMaintenanceRequest } from '../services/maintenanceService';
 import { getOwnerBookings, updateBookingStatus, deleteBooking } from '../services/bookingService';
-import { getOwnerPayments, updatePaymentStatus } from '../services/paymentService';
+import { getOwnerPayments, updatePaymentStatus, updatePayment } from '../services/paymentService';
 import { getOwnerReimbursements, updateReimbursementStatus } from '../services/reimbursementService';
 import { getOrCreateConversation } from '../services/messageService';
-import { getAllUsers } from '../services/userService';
+import { getAllUsers, getUserById } from '../services/userService';
+import { notifyMaintenanceResolved } from '../services/emailService';
 import { uploadMultiple, uploadToCloudinary } from '../utils/cloudinaryUpload';
 import { useToast } from '../hooks/useToast';
 import ContractViewer from '../components/ContractViewer';
@@ -109,14 +110,16 @@ function Pagination({ current, total, pageSize, onChange }: { current: number; t
 
 // ── Per-property finance card ───────────────────────────────────────────
 function PropertyFinanceCard({
-  property, contracts, payments, requests, reimbursements, tenants, onVerifyPayment, onReimbAction,
+  property, contracts, payments, requests, reimbursements, tenants, onVerifyPayment, onReimbAction, onUpdateEBM,
 }: {
   property: Property; contracts: Contract[]; payments: RentPayment[]; requests: MaintenanceRequest[];
   reimbursements: ReimbursementRequest[]; tenants: User[];
   onVerifyPayment: (id: string, s: 'verified' | 'rejected') => void;
   onReimbAction: (id: string, s: 'approved' | 'rejected' | 'paid') => void;
+  onUpdateEBM: (id: string, file: File) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
+  const [uploadingEbm, setUploadingEbm] = useState<string | null>(null);
   const contract = contracts.find(c => c.propertyId === property.id && c.status === 'active');
   const cur: Currency = contract?.currency ?? (property as any).currency ?? 'USD';
   const propPayments = payments.filter(p => p.propertyId === property.id);
@@ -191,7 +194,39 @@ function PropertyFinanceCard({
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <PayBadge status={pay.status} />
-                    {pay.proofUrl && <a href={pay.proofUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem', color: 'var(--terra-600)' }}>📎 Receipt</a>}
+                    {pay.proofUrl && <a href={pay.proofUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem', color: 'var(--terra-600)' }}>📎 Proof</a>}
+                    
+                    {/* EBM Receipt Section */}
+                    {pay.ebmUrl ? (
+                      <a href={pay.ebmUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem', color: 'var(--teal)', fontWeight: 600 }}>🏷️ EBM</a>
+                    ) : (
+                      pay.status === 'verified' && (
+                        <div style={{ position: 'relative' }}>
+                          <button 
+                            className="btn btn-ghost btn-sm" 
+                            style={{ padding: '3px 8px', fontSize: '0.7rem' }}
+                            disabled={uploadingEbm === pay.id}
+                            onClick={() => document.getElementById(`ebm-input-${pay.id}`)?.click()}
+                          >
+                            {uploadingEbm === pay.id ? '...' : '+ EBM'}
+                          </button>
+                          <input 
+                            id={`ebm-input-${pay.id}`}
+                            type="file" 
+                            hidden 
+                            onChange={async (e) => {
+                              const f = e.target.files?.[0];
+                              if (f) {
+                                setUploadingEbm(pay.id);
+                                await onUpdateEBM(pay.id, f);
+                                setUploadingEbm(null);
+                              }
+                            }} 
+                          />
+                        </div>
+                      )
+                    )}
+
                     {pay.status === 'pending' && (
                       <>
                         <button className="btn btn-primary btn-sm" onClick={() => onVerifyPayment(pay.id, 'verified')}>Verify</button>
@@ -468,7 +503,22 @@ export default function OwnerDashboard() {
   };
 
   const handleStatusUpdate = async (req: MaintenanceRequest, status: MaintenanceRequest['status']) => {
-    await updateMaintenanceRequest(req.id, { status }); show('Status updated.'); await load();
+    try {
+      await updateMaintenanceRequest(req.id, { status });
+      show('Status updated.');
+      
+      // Notify Tenant if resolved
+      if (status === 'resolved' || status === 'in_progress') {
+        const tenant = await getUserById(req.tenantId);
+        if (tenant?.email) {
+          notifyMaintenanceResolved(tenant.email, tenant.name, req.title);
+        }
+      }
+      
+      await load();
+    } catch (err: any) {
+      show('Failed to update status.', 'error');
+    }
   };
 
   const handleSaveRepairCost = async (reqId: string) => {
@@ -482,6 +532,17 @@ export default function OwnerDashboard() {
   const handleVerifyPayment = async (id: string, status: 'verified' | 'rejected') => {
     await updatePaymentStatus(id, status);
     show(status === 'verified' ? 'Payment verified!' : 'Payment rejected.'); await load();
+  };
+
+  const handleUpdateEBM = async (paymentId: string, file: File) => {
+    try {
+      const url = await uploadToCloudinary(file);
+      await updatePayment(paymentId, { ebmUrl: url });
+      show('EBM receipt uploaded.');
+      await load();
+    } catch (err: any) {
+      show(err.message || 'Failed to upload EBM.', 'error');
+    }
   };
 
   const handleReimbAction = async (id: string, status: 'approved' | 'rejected' | 'paid') => {
@@ -574,7 +635,7 @@ export default function OwnerDashboard() {
 
             <div className="form-group"><label className="form-label">Title *</label><input className="form-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} required /></div>
             <div className="form-group"><label className="form-label">Location *</label><input className="form-input" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} required /></div>
-            <div className="form-group"><label className="form-label">Type</label><PropertyTypeSelector category={form.category} type={form.type} subcategory={form.subcategory} onChange={(field, value) => setForm(f => ({ ...f, [field]: value }))} /></div>
+            <div className="form-group"><label className="form-label">Type</label><PropertyTypeSelector category={form.category} type={form.type} subcategory={form.subcategory} onChange={(field: any, value: string) => setForm(f => ({ ...f, [field]: value }))} /></div>
 
             {/* Currency first, then price — so the label updates */}
             <div className="form-group">
@@ -719,6 +780,20 @@ export default function OwnerDashboard() {
                             <span className={`badge ${p.status === 'available' ? 'badge-green' : 'badge-amber'}`}>{p.status}</span>
                             <span className={`badge ${p.isPublic ? 'badge-blue' : 'badge-gray'}`}>{p.isPublic ? '🌐 Public' : '🔒 Private'}</span>
                             <span className="badge badge-teal">{formatCurrency(p.price, cur)}/mo</span>
+                            {(() => {
+                              const c = contracts.find(ct => ct.propertyId === p.id && ct.status === 'on_notice');
+                              if (!c) return null;
+                              return (
+                                <div style={{ width: '100%', marginTop: 8, padding: '8px 12px', background: '#fffbeb', borderRadius: 10, border: '1px solid #fef3c7', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                  <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#92400e', letterSpacing: '0.4px', textTransform: 'uppercase' }}>📢 On 15-day Notice</span>
+                                  {c.noticeDate && (
+                                    <span style={{ fontSize: '0.68rem', color: '#b45309', fontWeight: 500 }}>
+                                      Exit Date: {new Date(new Date(c.noticeDate).getTime() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(p)}>Edit</button>
@@ -741,22 +816,35 @@ export default function OwnerDashboard() {
         const paginated = filtered.slice((page - 1) * 4, page * 4);
         return (
           <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12, marginBottom: 24 }}>
-              <div className="stat-card">
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--terra-600)', fontSize: '1.1rem' }}>
-                  {totalRentUSD > 0 && <div>{formatCurrency(totalRentUSD, 'USD')}</div>}
-                  {totalRentRWF > 0 && <div>{formatCurrency(totalRentRWF, 'RWF')}</div>}
-                  {totalRentUSD === 0 && totalRentRWF === 0 && '—'}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 24 }}>
+              {[
+                { label: 'Rent Collected', icon: '💰', color: '#10b981', 
+                  value: (
+                    <div style={{ lineHeight: 1.2 }}>
+                      {totalRentUSD > 0 && <div style={{ fontSize: '0.95rem', fontWeight: 700 }}>{formatCurrency(totalRentUSD, 'USD')}</div>}
+                      {totalRentRWF > 0 && <div style={{ fontSize: '0.95rem', fontWeight: 700 }}>{formatCurrency(totalRentRWF, 'RWF')}</div>}
+                      {totalRentUSD === 0 && totalRentRWF === 0 && <div style={{ fontSize: '0.95rem', fontWeight: 700 }}>—</div>}
+                    </div>
+                  )
+                },
+                { label: 'Deposits Held', icon: '🏦', color: '#3b82f6', value: <div style={{ fontSize: '0.95rem', fontWeight: 700 }}>{formatCurrency(totalDeposits, defaultCurrency)}</div> },
+                { label: 'Repair Spend', icon: '🔧', color: '#ef4444', value: <div style={{ fontSize: '0.95rem', fontWeight: 700 }}>{formatCurrency(totalRepairs, defaultCurrency)}</div> },
+                { label: 'Pending Verify', icon: '⏳', color: pendingPayments > 0 ? '#f59e0b' : '#64748b', value: <div style={{ fontSize: '0.95rem', fontWeight: 700 }}>{pendingPayments}</div> },
+              ].map(s => (
+                <div key={s.label} className="card" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, minHeight: 68 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: s.color + '10', color: s.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', flexShrink: 0 }}>
+                    {s.icon}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700, marginBottom: 1 }}>{s.label}</div>
+                    {s.value}
+                  </div>
                 </div>
-                <div className="stat-label">Total Rent Collected</div>
-              </div>
-              <div className="stat-card"><div className="stat-value" style={{ color: '#3b82f6' }}>{formatCurrency(totalDeposits, defaultCurrency)}</div><div className="stat-label">Deposits Held</div></div>
-              <div className="stat-card"><div className="stat-value" style={{ color: '#ef4444' }}>{formatCurrency(totalRepairs, defaultCurrency)}</div><div className="stat-label">Repair Spend</div></div>
-              <div className="stat-card"><div className="stat-value" style={{ color: pendingPayments > 0 ? '#f59e0b' : 'var(--terra-600)' }}>{pendingPayments}</div><div className="stat-label">Verify Pay</div></div>
+              ))}
             </div>
             <SearchInput value={search} onChange={setSearch} placeholder="Filter properties..." />
             {paginated.map(p => (
-              <PropertyFinanceCard key={p.id} property={p} contracts={contracts} payments={payments} requests={requests} reimbursements={reimbursements} tenants={allTenants} onVerifyPayment={handleVerifyPayment} onReimbAction={handleReimbAction} />
+              <PropertyFinanceCard key={p.id} property={p} contracts={contracts} payments={payments} requests={requests} reimbursements={reimbursements} tenants={allTenants} onVerifyPayment={handleVerifyPayment} onReimbAction={handleReimbAction} onUpdateEBM={handleUpdateEBM} />
             ))}
             <Pagination current={page} total={filtered.length} pageSize={4} onChange={setPage} />
           </div>
@@ -786,14 +874,16 @@ export default function OwnerDashboard() {
                         <BookingBadge status={b.status} />
                       </div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-                        {b.status === 'pending' && (
+                        {(b.status === 'pending' || b.status === 'rejected') && (
                           <>
                             <button className="btn btn-primary btn-sm" onClick={() => handleBookingAction(b, 'approved')}>✓ Approve</button>
-                            <button className="btn btn-danger btn-sm" onClick={() => handleBookingAction(b, 'rejected')}>✗ Reject</button>
+                            {b.status === 'pending' && <button className="btn btn-danger btn-sm" onClick={() => handleBookingAction(b, 'rejected')}>✗ Reject</button>}
                           </>
                         )}
                         <button className="btn btn-ghost btn-sm" onClick={() => handleOpenChat(b)}>💬 Message</button>
-                        <button className="btn btn-danger btn-sm" onClick={() => handleDeleteBooking(b.id)}>🗑️ Delete</button>
+                        {(b.status === 'pending' || b.status === 'rejected') && (
+                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteBooking(b.id)}>🗑️ Delete</button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -874,48 +964,63 @@ export default function OwnerDashboard() {
         return (
           <>
             <SearchInput value={search} onChange={setSearch} placeholder="Search contracts..." />
-            <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Property & Tenant</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Rent</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Dates</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.length === 0 ? (
-                    <tr><td colSpan={4} style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>No contracts found.</td></tr>
-                  ) : paginated.map(c => (
-                    <tr key={c.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{ fontWeight: 600 }}>{properties.find(p => p.id === c.propertyId)?.title || 'Unknown'}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>👤 {allTenants.find(u => u.id === c.tenantId)?.name || 'Guest'}</div>
-                        {c.contractDocumentURL && (
-                          <a href={c.contractDocumentURL} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', color: 'var(--terra-600)', textDecoration: 'underline', display: 'block', marginTop: 4 }}>
-                            View Document
-                          </a>
-                        )}
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{ fontWeight: 600, color: 'var(--terra-600)' }}>{formatCurrency(c.rentAmount, c.currency || 'USD')}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
+              {filtered.length === 0 ? (
+                <div className="empty-state" style={{ gridColumn: '1/-1' }}><h3>No contracts found.</h3></div>
+              ) : paginated.map(c => {
+                const prop = properties.find(p => p.id === c.propertyId);
+                const tenant = allTenants.find(u => u.id === c.tenantId);
+                const isNotice = c.status === 'on_notice';
+                
+                return (
+                  <div key={c.id} className="card" style={{ padding: '18px 20px', border: isNotice ? '1.5px solid #fef3c7' : '1px solid var(--border)', background: isNotice ? '#fffaf0' : '#fff' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                      <div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Rental Agreement</div>
+                        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '1.1rem', color: 'var(--terra-900)', marginTop: 2 }}>{prop?.title || 'Unknown Property'}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button className="btn btn-ghost btn-sm" style={{ padding: 6 }} onClick={() => handleEditContract(c)}>✏️</button>
+                        <button className="btn btn-danger btn-sm" style={{ padding: 6, background: '#fee2e2' }} onClick={() => handleDeleteContract(c.id)}>🗑️</button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                      <div>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 2 }}>Tenant</div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>👤 {tenant?.name || 'Guest'}</div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.tenantId}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 2 }}>Monthly Rent</div>
+                        <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--terra-600)' }}>{formatCurrency(c.rentAmount, c.currency || 'USD')}</div>
                         <div style={{ fontSize: '0.7rem', opacity: 0.7 }}>Dep: {formatCurrency(c.depositAmount || 0, c.currency || 'USD')}</div>
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{ fontSize: '0.82rem' }}>{c.startDate} — {c.endDate}</div>
-                        <span className="badge badge-blue" style={{ fontSize: '0.65rem' }}>{c.status}</span>
-                      </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                          <button className="btn btn-ghost btn-sm" onClick={() => handleEditContract(c)}>✏️</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteContract(c.id)}>🗑️</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 2 }}>Start Date</div>
+                        <div style={{ fontSize: '0.88rem', fontWeight: 500 }}>{c.startDate}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 2 }}>End Date</div>
+                        <div style={{ fontSize: '0.88rem', fontWeight: 500 }}>{c.endDate}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Contract ID: <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>#{c.id.slice(-8).toUpperCase()}</span></div>
+                      <span className={`badge ${isNotice ? 'badge-amber' : 'badge-green'}`} style={{ fontSize: '0.68rem', textTransform: 'uppercase', fontWeight: 700 }}>
+                        {isNotice ? '📢 On Notice' : '● ' + c.status}
+                      </span>
+                    </div>
+
+                    {isNotice && c.noticeDate && (
+                      <div style={{ marginTop: 10, padding: '8px 12px', background: '#fef3c7', borderRadius: 8, fontSize: '0.75rem', color: '#92400e', fontWeight: 600, textAlign: 'center' }}>
+                        Exit Date: {new Date(new Date(c.noticeDate).getTime() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             <Pagination current={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
           </>

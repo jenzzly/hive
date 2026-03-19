@@ -8,137 +8,59 @@ interface Props {
 }
 
 export default function ContractViewer({ contract, propertyTitle, tenantName }: Props) {
-  const isActive = contract.status === 'active';
+  const isNotice = contract.status === 'on_notice';
   const start = new Date(contract.startDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   const end = new Date(contract.endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
-    <div style={styles.card}>
-      {/* Header */}
-      <div style={styles.header}>
+    <div className="card" style={{ padding: '20px 24px', border: isNotice ? '1.5px solid #fef3c7' : '1px solid var(--border)', background: isNotice ? '#fffaf0' : '#fff' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
         <div>
-          <div style={styles.headerTitle}>Rental Agreement</div>
-          {propertyTitle && <div style={styles.headerSub}>{propertyTitle}</div>}
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Rental Agreement</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '1.2rem', color: 'var(--terra-900)', marginTop: 2 }}>{propertyTitle || 'Unknown Property'}</div>
         </div>
-        <span style={{ ...styles.badge, background: isActive ? 'var(--teal-light)' : '#f3f4f6', color: isActive ? 'var(--teal-dark)' : '#6b7280' }}>
-          {isActive ? '● Active' : '○ Expired'}
+        <span className={`badge ${isNotice ? 'badge-amber' : 'badge-green'}`} style={{ fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 700, padding: '4px 12px' }}>
+          {isNotice ? '📢 On Notice' : '● ' + contract.status}
         </span>
       </div>
 
-      <hr style={styles.divider} />
-
-      {/* Details grid */}
-      <div style={styles.grid}>
-        <Detail label="Tenant" value={tenantName || contract.tenantId} />
-        <Detail label="Monthly Rent" value={formatCurrency(contract.rentAmount, contract.currency || 'USD')} highlight />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 20, marginBottom: 20 }}>
+        <Detail label="Tenant" value={tenantName || contract.tenantId} icon="👤" />
+        <Detail label="Monthly Rent" value={formatCurrency(contract.rentAmount, contract.currency || 'RWF')} highlight />
         <Detail label="Start Date" value={start} />
         <Detail label="End Date" value={end} />
-        <Detail label="Contract ID" value={`#${contract.id.slice(-8).toUpperCase()}`} />
-        <Detail label="Status" value={isActive ? 'Active' : 'Expired'} />
       </div>
 
-      {/* Document */}
-      {contract.contractDocumentURL && (
-        <div style={styles.docRow}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" strokeWidth="1.8">
-            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
-          </svg>
-          <a
-            href={contract.contractDocumentURL}
-            target="_blank"
-            rel="noopener noreferrer"
-            download
-            style={styles.docLink}
-          >
-            Download Contract Document
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Contract ID: <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>#{contract.id.slice(-8).toUpperCase()}</span></div>
+        
+        {contract.contractDocumentURL ? (
+          <a href={contract.contractDocumentURL} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', color: 'var(--terra-600)', fontWeight: 600, textDecoration: 'none' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            View Document
           </a>
+        ) : (
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>No document attached</span>
+        )}
+      </div>
+
+      {isNotice && contract.noticeDate && (
+        <div style={{ marginTop: 14, padding: '10px 14px', background: '#fef3c7', borderRadius: 10, fontSize: '0.82rem', color: '#92400e', fontWeight: 600, textAlign: 'center', border: '1px solid #fde68a' }}>
+          ⚠️ Notice period active. Exit Date: {new Date(new Date(contract.noticeDate).getTime() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString()}
         </div>
       )}
     </div>
   );
 }
 
-function Detail({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function Detail({ label, value, highlight, icon }: { label: string; value: string; highlight?: boolean; icon?: string }) {
   return (
-    <div style={styles.detail}>
-      <div style={styles.detailLabel}>{label}</div>
-      <div style={{ ...styles.detailValue, ...(highlight ? styles.detailHighlight : {}) }}>{value}</div>
+    <div>
+      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: highlight ? '1.05rem' : '0.92rem', fontWeight: highlight ? 700 : 600, color: highlight ? 'var(--terra-600)' : 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+        {icon && <span style={{ opacity: 0.7 }}>{icon}</span>}
+        {value}
+      </div>
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  card: {
-    background: '#fff',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-lg)',
-    padding: 24,
-    boxShadow: 'var(--shadow)',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  headerTitle: {
-    fontFamily: 'var(--font-display)',
-    fontSize: '1.2rem',
-    color: 'var(--text-primary)',
-  },
-  headerSub: {
-    fontSize: '0.85rem',
-    color: 'var(--text-muted)',
-    marginTop: 2,
-  },
-  badge: {
-    padding: '4px 12px',
-    borderRadius: 20,
-    fontSize: '0.78rem',
-    fontWeight: 500,
-  },
-  divider: {
-    border: 'none',
-    borderTop: '1px solid var(--border)',
-    margin: '16px 0',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-    gap: 16,
-  },
-  detail: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 3,
-  },
-  detailLabel: {
-    fontSize: '0.75rem',
-    color: 'var(--text-muted)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-  },
-  detailValue: {
-    fontSize: '0.95rem',
-    color: 'var(--text-primary)',
-    fontWeight: 500,
-  },
-  detailHighlight: {
-    color: 'var(--teal)',
-    fontSize: '1.15rem',
-  },
-  docRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 20,
-    padding: '12px 16px',
-    background: 'var(--teal-light)',
-    borderRadius: 10,
-  },
-  docLink: {
-    color: 'var(--teal-dark)',
-    fontWeight: 500,
-    fontSize: '0.9rem',
-    textDecoration: 'none',
-  },
-};

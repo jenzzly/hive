@@ -50,7 +50,7 @@ export interface Property {
   createdAt: string;
 }
 
-export type ContractStatus = 'active' | 'expired';
+export type ContractStatus = 'active' | 'expired' | 'on_notice';
 
 export interface Contract {
   id: string;
@@ -64,6 +64,7 @@ export interface Contract {
   endDate: string;
   contractDocumentURL?: string;
   status: ContractStatus;
+  noticeDate?: string;
   createdAt: string;
 }
 
@@ -151,6 +152,7 @@ export interface RentPayment {
   proofUrl: string;
   notes: string;
   status: PaymentStatus;
+  ebmUrl?: string; // Owner receipt
   createdAt: string;
   verifiedAt?: string;
 }

@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getAllProperties } from '../services/propertyService';
-import { getTenantContracts } from '../services/contractService';
+import { getTenantContracts, updateContract } from '../services/contractService';
 import { getTenantRequests, createMaintenanceRequest } from '../services/maintenanceService';
 import { getTenantPayments, createRentPayment } from '../services/paymentService';
 import { getTenantReimbursements, createReimbursementRequest } from '../services/reimbursementService';
 import { uploadToCloudinary, uploadMultiple } from '../utils/cloudinaryUpload';
 import { useToast } from '../hooks/useToast';
+import { getUserById } from '../services/userService';
+import { notifyMaintenanceCreated, notifyNoticePeriod } from '../services/emailService';
 import PropertyGallery from '../components/PropertyGallery';
 import ContractViewer from '../components/ContractViewer';
 import MaintenanceForm from '../components/MaintenanceForm';
@@ -90,10 +92,23 @@ export default function TenantDashboard() {
   useEffect(() => { load(); }, [userProfile]);
 
   const handleSubmitRequest = async (data: Parameters<typeof createMaintenanceRequest>[0]) => {
-    await createMaintenanceRequest(data);
-    const updated = await getTenantRequests(userProfile!.id);
-    setRequests(updated);
-    show('Request submitted!');
+    try {
+      await createMaintenanceRequest(data);
+      const updated = await getTenantRequests(userProfile!.id);
+      setRequests(updated);
+      show('Request submitted!');
+      
+      // Notify Owner
+      const prop = properties.find(p => p.id === data.propertyId);
+      if (prop) {
+        const owner = await getUserById(prop.ownerId);
+        if (owner?.email) {
+          notifyMaintenanceCreated(owner.email, owner.name, data.title, prop.title);
+        }
+      }
+    } catch (err: any) {
+      show(err.message || 'Failed to submit request.', 'error');
+    }
   };
 
   const handleSubmitPayment = async (e: React.FormEvent) => {
@@ -168,6 +183,32 @@ export default function TenantDashboard() {
     { key: 'maintenance', label: '🔧 Maintenance' },
     { key: 'reimbursements', label: '↩ Reimbursements', badge: pendingReimbs },
   ];
+  const handleSendNotice = async (contractId: string) => {
+    if (!confirm('Are you sure you want to send a 15-day notice of termination? This cannot be undone.')) return;
+    try {
+      const contract = contracts.find(c => c.id === contractId);
+      await updateContract(contractId, { 
+        status: 'on_notice', 
+        noticeDate: new Date().toISOString() 
+      });
+      show('Notice sent. Your contract is now on a 15-day notice period.');
+      
+      // Notify Owner
+      if (contract && userProfile) {
+        const prop = properties.find(p => p.id === contract.propertyId);
+        if (prop) {
+          const owner = await getUserById(prop.ownerId);
+          if (owner?.email) {
+            notifyNoticePeriod(owner.email, owner.name, userProfile.name, prop.title);
+          }
+        }
+      }
+      
+      load();
+    } catch (err: any) {
+      show(err.message || 'Failed to send notice.', 'error');
+    }
+  };
 
   return (
     <div className="container page">
@@ -178,11 +219,23 @@ export default function TenantDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid-4" style={{ marginBottom: 28, gap: 12 }}>
-        <div className="stat-card"><div className="stat-value" style={{ color: 'var(--teal)' }}>{properties.length}</div><div className="stat-label">Units Rented</div></div>
-        <div className="stat-card"><div className="stat-value" style={{ color: '#3b82f6' }}>{contracts.filter(c => c.status === 'active').length}</div><div className="stat-label">Active Contracts</div></div>
-        <div className="stat-card"><div className="stat-value" style={{ color: pendingPayments > 0 ? '#f59e0b' : 'var(--teal)' }}>{pendingPayments}</div><div className="stat-label">Payments Pending</div></div>
-        <div className="stat-card"><div className="stat-value" style={{ color: pendingReimbs > 0 ? '#f59e0b' : 'var(--teal)' }}>{pendingReimbs}</div><div className="stat-label">Reimbursements</div></div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 28 }}>
+        {[
+          { label: 'Units Rented', val: properties.length, icon: '🏠', color: 'var(--teal)' },
+          { label: 'Active Leases', val: contracts.filter(c => c.status === 'active' || c.status === 'on_notice').length, icon: '📄', color: '#3b82f6' },
+          { label: 'Pay Pending', val: pendingPayments, icon: '💳', color: pendingPayments > 0 ? '#f59e0b' : 'var(--teal)' },
+          { label: 'Reimbursements', val: pendingReimbs, icon: '↩', color: pendingReimbs > 0 ? '#f59e0b' : 'var(--teal)' },
+        ].map(s => (
+          <div key={s.label} className="card" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: s.color + '10', color: s.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', flexShrink: 0 }}>
+              {s.icon}
+            </div>
+            <div>
+              <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 700 }}>{s.label}</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{s.val}</div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Tabs */}
@@ -212,7 +265,7 @@ export default function TenantDashboard() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
             {properties.map(p => {
-              const contract = contracts.find(c => c.propertyId === p.id && c.status === 'active');
+              const contract = contracts.find(c => c.propertyId === p.id && (c.status === 'active' || c.status === 'on_notice'));
               const paid = payments.filter(pay => pay.propertyId === p.id && pay.status === 'verified').reduce((s, pay) => s + pay.amount, 0);
               return (
                 <div key={p.id} className="card" style={{ overflow: 'hidden' }}>
@@ -238,13 +291,20 @@ export default function TenantDashboard() {
                         <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>{contract?.endDate ?? '—'}</div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <button className="btn btn-primary btn-sm" onClick={() => { setPayForm(f => ({ ...f, propertyId: p.id, amount: String(p.price), currency: p.currency || 'USD' })); setShowPayForm(true); setTab('payments'); }}>
                         💳 Pay Rent
                       </button>
                       <button className="btn btn-ghost btn-sm" onClick={() => { setTab('maintenance'); setSelectedPropertyId(p.id); }}>
                         🔧 Maintenance
                       </button>
+                      {contract?.status === 'active' ? (
+                        <button className="btn btn-danger btn-sm" onClick={() => handleSendNotice(contract.id)}>
+                          📢 15-day Notice
+                        </button>
+                      ) : contract?.status === 'on_notice' ? (
+                        <span className="badge badge-amber" style={{ fontSize: '0.75rem' }}>📢 On Notice ({contract.noticeDate ? new Date(contract.noticeDate).toLocaleDateString() : 'Today'})</span>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -315,7 +375,10 @@ export default function TenantDashboard() {
                       {pay.notes && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{pay.notes}</div>}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      {pay.proofUrl && <a href={pay.proofUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.78rem', color: 'var(--teal)' }}>📎 Receipt</a>}
+                      {pay.proofUrl && <a href={pay.proofUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.78rem', color: 'var(--teal)' }}>📎 Proof</a>}
+                      {pay.ebmUrl && (
+                        <a href={pay.ebmUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: 600 }}>🏷️ EBM Receipt</a>
+                      )}
                       <PayStatusBadge status={pay.status} />
                     </div>
                   </div>

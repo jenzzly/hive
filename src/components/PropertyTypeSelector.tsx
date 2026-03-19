@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { getCategories, getTypes, getSubcategories } from '../utils/propertyTaxonomy';
 
 interface Props {
@@ -13,9 +12,18 @@ export default function PropertyTypeSelector({ category, type, subcategory, onCh
     const types = getTypes(category);
     const subcategories = getSubcategories(category, type);
 
-    // Reset dependent fields when parent changes
-    useEffect(() => { onChange('type', ''); }, [category]);
-    useEffect(() => { onChange('subcategory', ''); }, [type]);
+    // Handle category change specifically to reset children
+    const handleCategoryChange = (val: string) => {
+        onChange('category', val);
+        onChange('type', '');
+        onChange('subcategory', '');
+    };
+
+    // Handle type change specifically to reset subcategory
+    const handleTypeChange = (val: string) => {
+        onChange('type', val);
+        onChange('subcategory', '');
+    };
 
     return (
         <>
@@ -24,7 +32,7 @@ export default function PropertyTypeSelector({ category, type, subcategory, onCh
                 <select
                     className="form-input"
                     value={category}
-                    onChange={e => onChange('category', e.target.value)}
+                    onChange={e => handleCategoryChange(e.target.value)}
                     required
                 >
                     <option value="">Select category</option>
@@ -37,7 +45,7 @@ export default function PropertyTypeSelector({ category, type, subcategory, onCh
                 <select
                     className="form-input"
                     value={type}
-                    onChange={e => onChange('type', e.target.value)}
+                    onChange={e => handleTypeChange(e.target.value)}
                     disabled={!category}
                     required
                 >

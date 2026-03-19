@@ -16,7 +16,7 @@ function HexIcon() {
 }
 
 function AvatarMenu({ name, role, unreadMessages, onLogout, t }: {
-  name: string; role: string; unreadMessages: number; onLogout: () => void; t: (k: string) => string;
+  name: string; role: string; unreadMessages: number; onLogout: () => void; t: (k: any) => string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -259,7 +259,10 @@ export default function Navbar() {
   };
 
   const centerLinks = [{ to: '/', label: '', unread: 0 }, ...mainLinks().map(l => ({ ...l, unread: 0 }))];
-  const rLinks = rightActionLinks();
+  const rLinks = rightActionLinks().map(l => ({
+    ...l,
+    unread: l.to === '/messages' ? unreadMessages : 0
+  }));
 
   return (
     <>
@@ -294,8 +297,13 @@ export default function Navbar() {
               <div style={S.rightLinks}>
                 {rLinks.map(l => (
                   <Link key={l.to} to={l.to}
-                    style={{ ...S.rightLink, ...(isActive(l.to) ? S.rightLinkActive : {}) }}>
+                    style={{ ...S.rightLink, ...(isActive(l.to) ? S.rightLinkActive : {}), display: 'flex', alignItems: 'center', gap: 5 }}>
                     {l.label}
+                    {(l.unread ?? 0) > 0 && (
+                      <span style={{ background: '#ef4444', color: '#fff', fontSize: '0.62rem', fontWeight: 700, padding: '1px 5px', borderRadius: 10 }}>
+                        {l.unread}
+                      </span>
+                    )}
                   </Link>
                 ))}
               </div>

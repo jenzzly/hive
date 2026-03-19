@@ -118,6 +118,21 @@ export const notifyMaintenanceResolved = (
     email: tenantEmail,
   });
 
+/** Tenant initiates notice period — notifies owner */
+export const notifyNoticePeriod = (
+  ownerEmail: string,
+  ownerName: string,
+  tenantName: string,
+  propertyTitle: string,
+) =>
+  send({
+    timestamp: now(),
+    to_name: ownerName,
+    message_preview: `Notice of termination for "${propertyTitle}" from ${tenantName} (15-day period)`,
+    sender_name: tenantName,
+    email: ownerEmail,
+  });
+
 /** Quick test — call from browser console: testEmailJS('you@example.com') */
 export const testEmailJS = async (toEmail = 'test@example.com'): Promise<boolean> => {
   console.log('🧪 Testing EmailJS...');

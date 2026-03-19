@@ -50,7 +50,7 @@ function AppRoutes() {
       <div style={{ flex: 1 }}>
         <Routes>
           {/* Public */}
-          <Route path="/" element={<PublicRoute><Home /></PublicRoute>} />
+          <Route path="/" element={<Home />} />
           <Route path="/property/:id" element={<PropertyDetail />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
