@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { loginUser } from '../services/authService';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,7 +11,7 @@ export default function Login() {
   const { t } = useLang();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPwd, setShowPwd] = useState(false);
+  const [showPwd, setShowPwd] = useState<boolean>(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -73,9 +73,14 @@ export default function Login() {
                 style={{ paddingRight: 44 }}
                 autoComplete="current-password"
               />
-              <button type="button" onClick={() => setShowPwd(v => !v)} style={S.eyeBtn}>
+              <button type="button" onClick={() => setShowPwd((v: boolean) => !v)} style={S.eyeBtn}>
                 {showPwd ? '🙈' : '👁'}
               </button>
+            </div>
+            <div style={{ textAlign: 'right', marginTop: 4 }}>
+              <Link to="/forgot-password" style={{ ...S.link, fontSize: '0.85rem' }}>
+                {t('forgotPassword')}
+              </Link>
             </div>
           </div>
           <button

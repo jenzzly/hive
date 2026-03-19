@@ -3,6 +3,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   type User as FirebaseUser,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
@@ -57,3 +58,8 @@ export const getUserProfile = async (uid: string): Promise<User | null> => {
 export const subscribeToAuthState = (
   callback: (user: FirebaseUser | null) => void
 ) => onAuthStateChanged(auth, callback);
+
+export const resetPassword = async (email: string): Promise<void> => {
+  await sendPasswordResetEmail(auth, email);
+};
+

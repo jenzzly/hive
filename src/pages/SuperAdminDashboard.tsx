@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getAllUsers, updateUserRole, deleteUserDoc, updateUserProfile } from '../services/userService';
-import { getAllProperties, deleteProperty, updateProperty } from '../services/propertyService';
-import { getAllPayments, updatePaymentStatus } from '../services/paymentService';
-import { getAllReimbursements, updateReimbursementStatus } from '../services/reimbursementService';
+import { getAllProperties, deleteProperty, updateProperty, createProperty } from '../services/propertyService';
+import { getAllPayments, updatePaymentStatus, deletePayment, updatePayment, createRentPayment } from '../services/paymentService';
+import { getAllReimbursements, updateReimbursementStatus, deleteReimbursement, updateReimbursement, createReimbursementRequest } from '../services/reimbursementService';
+import { getAllContracts, deleteContract, updateContract, createContract } from '../services/contractService';
+import { getPlatformConfig, updatePlatformConfig, type PlatformConfig } from '../services/settingsService';
 import { useToast } from '../hooks/useToast';
 import { useLang } from '../contexts/LanguageContext';
-import type { User, UserRole, Property, RentPayment, ReimbursementRequest } from '../types';
+import type { User, UserRole, Property, RentPayment, ReimbursementRequest, Contract, Currency, PropertyCategory, PropertyType, ContractStatus, ReimbursementStatus, PaymentStatus } from '../types';
 
-type Tab = 'users' | 'properties' | 'payments' | 'reimbursements';
+type Tab = 'users' | 'properties' | 'payments' | 'reimbursements' | 'contracts' | 'settings';
 
 const ROLES: UserRole[] = ['visitor', 'tenant', 'owner', 'admin', 'superAdmin'];
 const ROLE_COLORS: Record<string, string> = {
@@ -35,19 +37,66 @@ export default function SuperAdminDashboard() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [payments, setPayments] = useState<RentPayment[]>([]);
   const [reimbursements, setReimbursements] = useState<ReimbursementRequest[]>([]);
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [platformConfig, setPlatformConfig] = useState<PlatformConfig | null>(null);
+  
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  
+  // Modals
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [editName, setEditName] = useState('');
-  const [savingUser, setSavingUser] = useState(false);
+  const [editingProperty, setEditingProperty] = useState<Partial<Property> | null>(null);
+  const [editingPayment, setEditingPayment] = useState<Partial<RentPayment> | null>(null);
+  const [editingReimb, setEditingReimb] = useState<Partial<ReimbursementRequest> | null>(null);
+  const [editingContract, setEditingContract] = useState<Partial<Contract> | null>(null);
+  
+  const [saving, setSaving] = useState(false);
+
+  const [loadErrors, setLoadErrors] = useState<string[]>([]);
 
   const load = async () => {
     setLoading(true);
-    const [u, p, pays, reimbs] = await Promise.all([
-      getAllUsers(), getAllProperties(), getAllPayments(), getAllReimbursements(),
-    ]);
-    setUsers(u); setProperties(p); setPayments(pays); setReimbursements(reimbs);
-    setLoading(false);
+    setLoadErrors([]);
+    const errors: string[] = [];
+    
+    try {
+      const results = await Promise.allSettled([
+        getAllUsers(),
+        getAllProperties(),
+        getAllPayments(),
+        getAllReimbursements(),
+        getAllContracts(),
+        getPlatformConfig()
+      ]);
+
+      if (results[0].status === 'fulfilled') setUsers(results[0].value);
+      else { console.error('Users load fail:', results[0].reason); errors.push('Users: ' + (results[0].reason?.message || 'Permission denied')); }
+
+      if (results[1].status === 'fulfilled') setProperties(results[1].value);
+      else { console.error('Props load fail:', results[1].reason); errors.push('Properties: ' + (results[1].reason?.message || 'Permission denied')); }
+
+      if (results[2].status === 'fulfilled') setPayments(results[2].value);
+      else { console.error('Payments load fail:', results[2].reason); errors.push('Payments: ' + (results[2].reason?.message || 'Permission denied')); }
+
+      if (results[3].status === 'fulfilled') setReimbursements(results[3].value);
+      else { console.error('Reimbs load fail:', results[3].reason); errors.push('Reimbursements: ' + (results[3].reason?.message || 'Permission denied')); }
+
+      if (results[4].status === 'fulfilled') setContracts(results[4].value);
+      else { console.error('Contracts load fail:', results[4].reason); errors.push('Contracts: ' + (results[4].reason?.message || 'Permission denied')); }
+
+      if (results[5].status === 'fulfilled') setPlatformConfig(results[5].value);
+      else { console.error('Config load fail:', results[5].reason); errors.push('Settings: ' + (results[5].reason?.message || 'Permission denied')); }
+
+      setLoadErrors(errors);
+      if (errors.length > 0) {
+        show(`Loaded with ${errors.length} error(s). Check UI details.`, 'error');
+      }
+    } catch (err: any) {
+      console.error('SuperAdmin load overall error:', err);
+      show('Failed to initiate dashboard load.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -61,12 +110,17 @@ export default function SuperAdminDashboard() {
     await deleteUserDoc(user.id); show('User deleted.'); await load();
   };
 
-  const handleSaveUser = async () => {
+  const handleSaveUser = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!editingUser) return;
-    setSavingUser(true);
-    try { await updateUserProfile(editingUser.id, { name: editName }); show('Updated.'); setEditingUser(null); await load(); }
-    catch (err: any) { show(err.message, 'error'); }
-    finally { setSavingUser(false); }
+    setSaving(true);
+    try { 
+      await updateUserProfile(editingUser.id, { name: editingUser.name }); 
+      show('Updated.'); 
+      setEditingUser(null); 
+      await load(); 
+    } catch (err: any) { show(err.message, 'error'); }
+    finally { setSaving(false); }
   };
 
   const handleDeleteProperty = async (id: string) => {
@@ -74,34 +128,116 @@ export default function SuperAdminDashboard() {
     await deleteProperty(id); show('Deleted.'); await load();
   };
 
-  const handleTogglePublic = async (p: Property) => {
-    await updateProperty(p.id, { isPublic: !p.isPublic });
-    show(p.isPublic ? 'Set private.' : 'Listed publicly.'); await load();
+  const handleSaveProperty = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProperty) return;
+    setSaving(true);
+    try {
+      if (editingProperty.id) {
+        await updateProperty(editingProperty.id, editingProperty);
+        show('Property updated');
+      } else {
+        await createProperty(editingProperty as any);
+        show('Property created');
+      }
+      setEditingProperty(null);
+      await load();
+    } catch (err: any) { show(err.message, 'error'); }
+    finally { setSaving(false); }
   };
 
-  const handleToggleStatus = async (p: Property) => {
-    const next = p.status === 'available' ? 'occupied' : 'available';
-    await updateProperty(p.id, { status: next }); show(`Status → ${next}.`); await load();
+  const handleSavePayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPayment) return;
+    setSaving(true);
+    try {
+      if (editingPayment.id) {
+        await updatePayment(editingPayment.id, editingPayment);
+        show('Payment updated');
+      } else {
+        await createRentPayment(editingPayment as any);
+        show('Payment record created');
+      }
+      setEditingPayment(null);
+      await load();
+    } catch (err: any) { show(err.message, 'error'); }
+    finally { setSaving(false); }
   };
 
-  const handleVerifyPayment = async (id: string, status: 'verified' | 'rejected') => {
-    await updatePaymentStatus(id, status); show(`Payment ${status}.`); await load();
+  const handleSaveReimb = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingReimb) return;
+    setSaving(true);
+    try {
+      if (editingReimb.id) {
+        await updateReimbursement(editingReimb.id, editingReimb);
+        show('Reimbursement updated');
+      } else {
+        await createReimbursementRequest(editingReimb as any);
+        show('Reimbursement request created');
+      }
+      setEditingReimb(null);
+      await load();
+    } catch (err: any) { show(err.message, 'error'); }
+    finally { setSaving(false); }
   };
 
-  const handleReimbAction = async (id: string, status: 'approved' | 'rejected' | 'paid') => {
-    await updateReimbursementStatus(id, status); show(`Reimbursement ${status}.`); await load();
+  const handleSaveContract = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingContract) return;
+    setSaving(true);
+    try {
+      if (editingContract.id) {
+        await updateContract(editingContract.id, editingContract);
+        show('Contract updated');
+      } else {
+        await createContract(editingContract as any);
+        show('Contract created');
+      }
+      setEditingContract(null);
+      await load();
+    } catch (err: any) { show(err.message, 'error'); }
+    finally { setSaving(false); }
   };
 
-  const filteredUsers = search ? users.filter(u => `${u.name} ${u.email} ${u.role}`.toLowerCase().includes(search.toLowerCase())) : users;
-  const filteredProps = search ? properties.filter(p => `${p.title} ${p.location}`.toLowerCase().includes(search.toLowerCase())) : properties;
+  const handleDeletePayment = async (id: string) => {
+    if (!confirm('Delete payment?')) return;
+    await deletePayment(id); show('Deleted.'); await load();
+  };
+
+  const handleDeleteReimb = async (id: string) => {
+    if (!confirm('Delete reimbursement?')) return;
+    await deleteReimbursement(id); show('Deleted.'); await load();
+  };
+
+  const handleDeleteContract = async (id: string) => {
+    if (!confirm('Delete contract?')) return;
+    await deleteContract(id); show('Deleted.'); await load();
+  };
+
+  const handleUpdateCurrency = async (cur: Currency) => {
+    try {
+      await updatePlatformConfig({ defaultCurrency: cur });
+      setPlatformConfig((prev: PlatformConfig | null) => prev ? { ...prev, defaultCurrency: cur } : null);
+      show(`Default currency set to ${cur}`);
+    } catch (err: any) {
+      show('Failed to update currency', 'error');
+    }
+  };
+
+  const filter = (list: any[], keys: string[]) => {
+    if (!search) return list;
+    return list.filter((item: any) => 
+      keys.some((key: string) => String(item[key] || '').toLowerCase().includes(search.toLowerCase()))
+    );
+  };
 
   const stats = {
     users: users.length,
-    owners: users.filter(u => u.role === 'owner').length,
-    tenants: users.filter(u => u.role === 'tenant').length,
     properties: properties.length,
-    pendingPay: payments.filter(p => p.status === 'pending').length,
-    pendingReimb: reimbursements.filter(r => r.status === 'pending').length,
+    pendingPay: payments.filter((p: RentPayment) => p.status === 'pending').length,
+    pendingReimb: reimbursements.filter((r: ReimbursementRequest) => r.status === 'pending').length,
+    activeContracts: contracts.filter((c: Contract) => c.status === 'active').length,
   };
 
   const TABS: { key: Tab; label: string; badge?: number }[] = [
@@ -109,6 +245,8 @@ export default function SuperAdminDashboard() {
     { key: 'properties', label: '🏠 Properties' },
     { key: 'payments', label: '💳 Payments', badge: stats.pendingPay },
     { key: 'reimbursements', label: '↩ Reimbursements', badge: stats.pendingReimb },
+    { key: 'contracts', label: '📜 Contracts' },
+    { key: 'settings', label: '⚙ Settings' },
   ];
 
   return (
@@ -120,29 +258,119 @@ export default function SuperAdminDashboard() {
           <h1 className="page-title">{t('superAdmin')}</h1>
           <span className="badge badge-red">Full Access</span>
         </div>
-        <p className="page-subtitle">Manage all users, properties, payments, and reimbursements.</p>
+        <p className="page-subtitle">Platform-wide management and settings.</p>
       </div>
 
-      <div className="grid-4" style={{ marginBottom: 28, gap: 12 }}>
+      {loadErrors.length > 0 && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: 16, marginBottom: 24 }}>
+          <h4 style={{ color: '#991b1b', marginBottom: 8, fontSize: '0.9rem' }}>⚠️ Data Loading Issues</h4>
+          <ul style={{ margin: 0, paddingLeft: 20, fontSize: '0.85rem', color: '#b91c1c' }}>
+            {loadErrors.map((err, i) => <li key={i}>{err}</li>)}
+          </ul>
+          <p style={{ marginTop: 12, fontSize: '0.8rem', color: '#7f1d1d' }}>
+            Ensure your user role is set to <strong>superAdmin</strong> in Firestore and all required collections exist.
+          </p>
+        </div>
+      )}
+
+      <div className="grid-5" style={{ marginBottom: 28, gap: 12 }}>
         <div className="stat-card"><div className="stat-value">{stats.users}</div><div className="stat-label">Total Users</div></div>
-        <div className="stat-card"><div className="stat-value" style={{ color: '#1d4ed8' }}>{stats.tenants}</div><div className="stat-label">Tenants</div></div>
-        <div className="stat-card"><div className="stat-value" style={{ color: 'var(--teal)' }}>{stats.owners}</div><div className="stat-label">Owners</div></div>
         <div className="stat-card"><div className="stat-value">{stats.properties}</div><div className="stat-label">Properties</div></div>
-        <div className="stat-card"><div className="stat-value" style={{ color: stats.pendingPay > 0 ? '#f59e0b' : 'var(--teal)' }}>{stats.pendingPay}</div><div className="stat-label">Pending Payments</div></div>
-        <div className="stat-card"><div className="stat-value" style={{ color: stats.pendingReimb > 0 ? '#f59e0b' : 'var(--teal)' }}>{stats.pendingReimb}</div><div className="stat-label">Pending Reimbursements</div></div>
+        <div className="stat-card"><div className="stat-value" style={{ color: stats.pendingPay > 0 ? '#f59e0b' : 'var(--teal)' }}>{stats.pendingPay}</div><div className="stat-label">Pending Pay</div></div>
+        <div className="stat-card"><div className="stat-value" style={{ color: stats.pendingReimb > 0 ? '#f59e0b' : 'var(--teal)' }}>{stats.pendingReimb}</div><div className="stat-label">Pending Reimb</div></div>
+        <div className="stat-card"><div className="stat-value" style={{ color: 'var(--teal)' }}>{stats.activeContracts}</div><div className="stat-label">Active Contracts</div></div>
       </div>
 
-      {/* Edit user modal */}
+      {/* MODALS */}
       {editingUser && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="card" style={{ padding: 28, width: '100%', maxWidth: 400 }}>
-            <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 16 }}>Edit User</h3>
-            <div className="form-group"><label className="form-label">Name</label><input className="form-input" value={editName} onChange={e => setEditName(e.target.value)} /></div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-              <button className="btn btn-primary" onClick={handleSaveUser} disabled={savingUser}>{savingUser ? 'Saving...' : 'Save'}</button>
-              <button className="btn btn-ghost" onClick={() => setEditingUser(null)}>Cancel</button>
+        <div style={MS.modalOverlay}>
+          <form onSubmit={handleSaveUser} className="card" style={MS.modalCard}>
+            <h3>Edit User</h3>
+            <div className="form-group"><label className="form-label">Name</label>
+              <input className="form-input" value={editingUser.name} onChange={e => setEditingUser({...editingUser, name: e.target.value})} />
             </div>
-          </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+              <button type="button" className="btn btn-ghost" onClick={() => setEditingUser(null)}>Cancel</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {editingProperty && (
+        <div style={MS.modalOverlay}>
+          <form onSubmit={handleSaveProperty} className="card" style={{...MS.modalCard, maxWidth: 500}}>
+            <h3>{editingProperty.id ? 'Edit Property' : 'New Property'}</h3>
+            <div className="grid-2" style={{gap:12}}>
+              <div className="form-group"><label className="form-label">Title</label>
+                <input className="form-input" required value={editingProperty.title || ''} onChange={e => setEditingProperty({...editingProperty, title: e.target.value})} />
+              </div>
+              <div className="form-group"><label className="form-label">Price</label>
+                <input className="form-input" type="number" required value={editingProperty.price || 0} onChange={e => setEditingProperty({...editingProperty, price: Number(e.target.value)})} />
+              </div>
+              <div className="form-group"><label className="form-label">Location</label>
+                <input className="form-input" required value={editingProperty.location || ''} onChange={e => setEditingProperty({...editingProperty, location: e.target.value})} />
+              </div>
+              <div className="form-group"><label className="form-label">Owner ID</label>
+                <input className="form-input" required value={editingProperty.ownerId || ''} onChange={e => setEditingProperty({...editingProperty, ownerId: e.target.value})} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+              <button type="button" className="btn btn-ghost" onClick={() => setEditingProperty(null)}>Cancel</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {editingPayment && (
+        <div style={MS.modalOverlay}>
+          <form onSubmit={handleSavePayment} className="card" style={MS.modalCard}>
+            <h3>{editingPayment.id ? 'Edit Payment' : 'New Payment'}</h3>
+            <div className="form-group"><label className="form-label">Amount</label>
+              <input type="number" className="form-input" required value={editingPayment.amount || 0} onChange={e => setEditingPayment({...editingPayment, amount: Number(e.target.value)})} />
+            </div>
+            <div className="form-group"><label className="form-label">Status</label>
+              <select className="form-input" value={editingPayment.status} onChange={e => setEditingPayment({...editingPayment, status: e.target.value as PaymentStatus})}>
+                <option value="pending">Pending</option>
+                <option value="verified">Verified</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+              <button type="button" className="btn btn-ghost" onClick={() => setEditingPayment(null)}>Cancel</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {editingContract && (
+        <div style={MS.modalOverlay}>
+          <form onSubmit={handleSaveContract} className="card" style={{...MS.modalCard, maxWidth: 500}}>
+            <h3>{editingContract.id ? 'Edit Contract' : 'New Contract'}</h3>
+            <div className="grid-2" style={{gap:12}}>
+              <div className="form-group"><label className="form-label">Rent Amount</label>
+                <input type="number" className="form-input" required value={editingContract.rentAmount || 0} onChange={e => setEditingContract({...editingContract, rentAmount: Number(e.target.value)})} />
+              </div>
+              <div className="form-group"><label className="form-label">Property ID</label>
+                <input className="form-input" required value={editingContract.propertyId || ''} onChange={e => setEditingContract({...editingContract, propertyId: e.target.value})} />
+              </div>
+              <div className="form-group"><label className="form-label">Tenant ID</label>
+                <input className="form-input" required value={editingContract.tenantId || ''} onChange={e => setEditingContract({...editingContract, tenantId: e.target.value})} />
+              </div>
+              <div className="form-group"><label className="form-label">Status</label>
+                <select className="form-input" value={editingContract.status} onChange={e => setEditingContract({...editingContract, status: e.target.value as ContractStatus})}>
+                  <option value="active">Active</option>
+                  <option value="expired">Expired</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+              <button type="button" className="btn btn-ghost" onClick={() => setEditingContract(null)}>Cancel</button>
+            </div>
+          </form>
         </div>
       )}
 
@@ -158,21 +386,26 @@ export default function SuperAdminDashboard() {
             </button>
           ))}
         </div>
-        {(tab === 'users' || tab === 'properties') && (
-          <input className="form-input" style={{ maxWidth: 280 }} placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} />
-        )}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {tab !== 'settings' && (
+            <input className="form-input" style={{ maxWidth: 220 }} placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} />
+          )}
+          {tab === 'properties' && <button className="btn btn-primary btn-sm" onClick={() => setEditingProperty({category: 'Residential', type: 'Apartment', status: 'available', isPublic: true, currency: platformConfig?.defaultCurrency || 'USD', images: [], amenities: []})}>+ Property</button>}
+          {tab === 'payments' && <button className="btn btn-primary btn-sm" onClick={() => setEditingPayment({status: 'pending', currency: platformConfig?.defaultCurrency || 'USD'})}>+ Payment</button>}
+          {tab === 'contracts' && <button className="btn btn-primary btn-sm" onClick={() => setEditingContract({status: 'active', currency: platformConfig?.defaultCurrency || 'USD'})}>+ Contract</button>}
+        </div>
       </div>
 
       {loading ? (
         <div className="loading-center"><div className="spinner" /></div>
       ) : tab === 'users' ? (
-        filteredUsers.length === 0 ? <div className="empty-state"><h3>No users found</h3></div> : (
+        filter(users, ['name', 'email', 'role']).length === 0 ? <div className="empty-state"><h3>No users found</h3></div> : (
           <div style={MS.tableWrap}>
             <div style={{ overflowX: 'auto' }}>
               <table style={MS.table}>
-                <thead><tr>{['User', 'Email', 'Role', 'Joined', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
+                <thead><tr>{['User', 'Email', 'Role', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
                 <tbody>
-                  {filteredUsers.map(user => (
+                  {filter(users, ['name', 'email', 'role']).map(user => (
                     <tr key={user.id} style={MS.tr}>
                       <td style={MS.td}><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><div style={MS.avatar}>{user.name.charAt(0).toUpperCase()}</div><span style={{ fontWeight: 500 }}>{user.name}</span></div></td>
                       <td style={MS.td}><span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>{user.email}</span></td>
@@ -184,10 +417,9 @@ export default function SuperAdminDashboard() {
                           <span className={`badge ${ROLE_COLORS[user.role] || 'badge-gray'}`}>{user.role}</span>
                         </div>
                       </td>
-                      <td style={MS.td}><span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{new Date(user.createdAt).toLocaleDateString()}</span></td>
                       <td style={MS.td}>
                         <div style={{ display: 'flex', gap: 6 }}>
-                          <button className="btn btn-secondary btn-sm" onClick={() => { setEditingUser(user); setEditName(user.name); }}>Edit</button>
+                          <button className="btn btn-secondary btn-sm" onClick={() => { setEditingUser(user); }}>Edit</button>
                           <button className="btn btn-danger btn-sm" onClick={() => handleDeleteUser(user)}>Delete</button>
                         </div>
                       </td>
@@ -199,23 +431,21 @@ export default function SuperAdminDashboard() {
           </div>
         )
       ) : tab === 'properties' ? (
-        filteredProps.length === 0 ? <div className="empty-state"><h3>No properties found</h3></div> : (
+        filter(properties, ['title', 'location']).length === 0 ? <div className="empty-state"><h3>No properties found</h3></div> : (
           <div style={MS.tableWrap}>
             <div style={{ overflowX: 'auto' }}>
               <table style={MS.table}>
-                <thead><tr>{['Property', 'Location', 'Status', 'Visibility', 'Owner', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
+                <thead><tr>{['Property', 'Price', 'Status', 'Owner', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
                 <tbody>
-                  {filteredProps.map(p => (
+                  {filter(properties, ['title', 'location']).map(p => (
                     <tr key={p.id} style={MS.tr}>
-                      <td style={MS.td}><span style={{ fontWeight: 500 }}>{p.title}</span></td>
-                      <td style={MS.td}><span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{p.location}</span></td>
+                      <td style={MS.td}><div style={{fontWeight: 500}}>{p.title}</div><div style={{fontSize: '0.75rem', color: 'var(--text-muted)'}}>{p.location}</div></td>
+                      <td style={MS.td}><span style={{ fontWeight: 600 }}>{p.currency} {p.price.toLocaleString()}</span></td>
                       <td style={MS.td}><span className={`badge ${p.status === 'available' ? 'badge-green' : 'badge-amber'}`}>{p.status}</span></td>
-                      <td style={MS.td}><span className={`badge ${p.isPublic ? 'badge-blue' : 'badge-gray'}`}>{p.isPublic ? 'Public' : 'Private'}</span></td>
-                      <td style={MS.td}><span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{p.ownerId.slice(0, 8)}…</span></td>
+                      <td style={MS.td}><span style={{ fontSize: '0.82rem', fontFamily: 'monospace' }}>{p.ownerId.slice(0, 8)}…</span></td>
                       <td style={MS.td}>
                         <div style={{ display: 'flex', gap: 6 }}>
-                          <button className="btn btn-secondary btn-sm" onClick={() => handleTogglePublic(p)}>{p.isPublic ? 'Hide' : 'Show'}</button>
-                          <button className="btn btn-secondary btn-sm" onClick={() => handleToggleStatus(p)}>Toggle Status</button>
+                          <button className="btn btn-secondary btn-sm" onClick={() => setEditingProperty(p)}>Edit</button>
                           <button className="btn btn-danger btn-sm" onClick={() => handleDeleteProperty(p.id)}>Delete</button>
                         </div>
                       </td>
@@ -227,27 +457,72 @@ export default function SuperAdminDashboard() {
           </div>
         )
       ) : tab === 'payments' ? (
-        payments.length === 0 ? <div className="empty-state"><h3>No payments yet</h3></div> : (
+        filter(payments, ['month', 'status']).length === 0 ? <div className="empty-state"><h3>No payments found</h3></div> : (
           <div style={MS.tableWrap}>
             <div style={{ overflowX: 'auto' }}>
               <table style={MS.table}>
-                <thead><tr>{['Tenant', 'Property', 'Month', 'Amount', 'Status', 'Proof', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
+                <thead><tr>{['Property', 'Month', 'Amount', 'Status', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
                 <tbody>
-                  {payments.map(pay => (
+                  {filter(payments, ['month', 'status', 'propertyId', 'tenantId']).map(pay => (
                     <tr key={pay.id} style={MS.tr}>
-                      <td style={MS.td}><span style={{ fontSize: '0.82rem', fontFamily: 'monospace', color: 'var(--text-muted)' }}>{pay.tenantId.slice(0, 8)}…</span></td>
                       <td style={MS.td}><span style={{ fontSize: '0.85rem' }}>{properties.find(p => p.id === pay.propertyId)?.title ?? pay.propertyId.slice(0, 8)}</span></td>
                       <td style={MS.td}><span style={{ fontWeight: 500 }}>{pay.month}</span></td>
-                      <td style={MS.td}><span style={{ fontWeight: 600, color: 'var(--teal)' }}>${pay.amount.toLocaleString()}</span></td>
+                      <td style={MS.td}><span style={{ fontWeight: 600, color: 'var(--teal)' }}>{pay.currency} {pay.amount.toLocaleString()}</span></td>
                       <td style={MS.td}><PayBadge status={pay.status} /></td>
-                      <td style={MS.td}>{pay.proofUrl ? <a href={pay.proofUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.78rem', color: 'var(--teal)' }}>📎 View</a> : '—'}</td>
                       <td style={MS.td}>
-                        {pay.status === 'pending' && (
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button className="btn btn-primary btn-sm" onClick={() => handleVerifyPayment(pay.id, 'verified')}>Verify</button>
-                            <button className="btn btn-danger btn-sm" onClick={() => handleVerifyPayment(pay.id, 'rejected')}>Reject</button>
-                          </div>
-                        )}
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="btn btn-secondary btn-sm" onClick={() => setEditingPayment(pay)}>Edit</button>
+                          <button className="btn btn-danger btn-sm" onClick={() => handleDeletePayment(pay.id)}>Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      ) : tab === 'reimbursements' ? (
+        filter(reimbursements, ['title', 'status']).length === 0 ? <div className="empty-state"><h3>No reimbursements found</h3></div> : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {filter(reimbursements, ['title', 'status', 'description']).map(r => (
+              <div key={r.id} className="card" style={{ padding: '16px 20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{r.title}</div>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{r.description}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 700, color: '#3b82f6' }}>${r.amount.toLocaleString()}</div>
+                    <ReimbBadge status={r.status} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                   <button className="btn btn-secondary btn-sm" onClick={() => setEditingReimb(r)}>Edit</button>
+                   <button className="btn btn-danger btn-sm" onClick={() => handleDeleteReimb(r.id)}>Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : tab === 'contracts' ? (
+        filter(contracts, ['status', 'propertyId', 'tenantId']).length === 0 ? <div className="empty-state"><h3>No contracts found</h3></div> : (
+          <div style={MS.tableWrap}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={MS.table}>
+                <thead><tr>{['Property', 'Tenant', 'Rent', 'Status', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {filter(contracts, ['status', 'propertyId', 'tenantId']).map(c => (
+                    <tr key={c.id} style={MS.tr}>
+                      <td style={MS.td}><span style={{ fontSize: '0.85rem' }}>{properties.find(p => p.id === c.propertyId)?.title ?? c.propertyId.slice(0, 8)}</span></td>
+                      <td style={MS.td}><span style={{ fontSize: '0.85rem' }}>{users.find(u => u.id === c.tenantId)?.name ?? c.tenantId.slice(0, 8)}</span></td>
+                      <td style={MS.td}><span style={{ fontWeight: 600 }}>{c.currency} {c.rentAmount.toLocaleString()}</span></td>
+                      <td style={MS.td}><span className={`badge ${c.status === 'active' ? 'badge-blue' : 'badge-gray'}`}>{c.status}</span></td>
+                      <td style={MS.td}>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="btn btn-secondary btn-sm" onClick={() => setEditingContract(c)}>Edit</button>
+                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteContract(c.id)}>Delete</button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -257,43 +532,26 @@ export default function SuperAdminDashboard() {
           </div>
         )
       ) : (
-        /* Reimbursements */
-        reimbursements.length === 0 ? <div className="empty-state"><h3>No reimbursement requests yet</h3></div> : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {reimbursements.map(r => (
-              <div key={r.id} className="card" style={{ padding: '16px 20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>{r.title}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 4 }}>
-                      {properties.find(p => p.id === r.propertyId)?.title} · Tenant: {users.find(u => u.id === r.tenantId)?.name ?? r.tenantId.slice(0, 8)}
-                    </div>
-                    <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{r.description}</div>
-                    {r.receiptUrls?.length > 0 && (
-                      <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                        {r.receiptUrls.map((url, i) => <a key={i} href={url} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem', color: 'var(--teal)' }}>📎 Receipt {i + 1}</a>)}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                    <div style={{ fontWeight: 700, fontSize: '1.1rem', color: '#3b82f6' }}>${r.amount.toLocaleString()}</div>
-                    <ReimbBadge status={r.status} />
-                  </div>
-                </div>
-                {r.status === 'pending' && (
-                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                    <button className="btn btn-primary btn-sm" onClick={() => handleReimbAction(r.id, 'approved')}>Approve</button>
-                    <button className="btn btn-secondary btn-sm" onClick={() => handleReimbAction(r.id, 'paid')}>Mark Paid</button>
-                    <button className="btn btn-danger btn-sm" onClick={() => handleReimbAction(r.id, 'rejected')}>Reject</button>
-                  </div>
-                )}
-                {r.status === 'approved' && (
-                  <button className="btn btn-primary btn-sm" style={{ marginTop: 10 }} onClick={() => handleReimbAction(r.id, 'paid')}>Mark as Paid</button>
-                )}
-              </div>
-            ))}
+        /* Settings Tab */
+        <div className="card" style={{ padding: 32, maxWidth: 600 }}>
+          <h3 style={{ marginBottom: 20 }}>Platform Global Settings</h3>
+          <div style={{ marginBottom: 24 }}>
+            <label className="form-label" style={{ fontSize: '1rem', marginBottom: 12 }}>Default Platform Currency</label>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 16 }}>This setting controls the default currency for new properties and payments.</p>
+            <div style={{ display: 'flex', gap: 20 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: platformConfig?.defaultCurrency === 'USD' ? 600 : 400 }}>
+                <input type="radio" name="currency" checked={platformConfig?.defaultCurrency === 'USD'} onChange={() => handleUpdateCurrency('USD')} /> USD ($)
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: platformConfig?.defaultCurrency === 'RWF' ? 600 : 400 }}>
+                <input type="radio" name="currency" checked={platformConfig?.defaultCurrency === 'RWF'} onChange={() => handleUpdateCurrency('RWF')} /> RWF (FRW)
+              </label>
+            </div>
           </div>
-        )
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '24px 0' }} />
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            Last updated: {platformConfig?.updatedAt ? new Date(platformConfig.updatedAt.toDate?.() || platformConfig.updatedAt).toLocaleString() : 'Never'}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -307,4 +565,6 @@ const MS: Record<string, React.CSSProperties> = {
   td: { padding: '12px 16px', verticalAlign: 'middle' },
   avatar: { width: 30, height: 30, borderRadius: '50%', background: 'var(--teal-light)', color: 'var(--teal)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.78rem', flexShrink: 0 },
   roleSelect: { padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', fontSize: '0.82rem', background: '#fff', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', cursor: 'pointer' },
+  modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  modalCard: { padding: 28, width: '100%', maxWidth: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' },
 };

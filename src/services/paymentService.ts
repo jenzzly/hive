@@ -1,5 +1,5 @@
 import {
-  collection, doc, addDoc, updateDoc, getDocs,
+  collection, doc, addDoc, updateDoc, deleteDoc, getDocs,
   query, where, orderBy, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -59,4 +59,12 @@ export const getAllPayments = async (): Promise<RentPayment[]> => {
   const q = query(collection(db, COL), orderBy('createdAt', 'desc'));
   const snap = await getDocs(q);
   return snap.docs.map(normalize);
+};
+
+export const updatePayment = async (id: string, data: Partial<RentPayment>): Promise<void> => {
+  await updateDoc(doc(db, COL, id), data as any);
+};
+
+export const deletePayment = async (id: string): Promise<void> => {
+  await deleteDoc(doc(db, COL, id));
 };

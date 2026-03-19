@@ -16,6 +16,8 @@ import SettingsPage from './pages/SettingsPage';
 import OwnerAnalyticsPage from './pages/OwnerAnalyticsPage';
 import PlatformAnalyticsPage from './pages/PlatformAnalyticsPage';
 import MessagesPage from './pages/MessagesPage';
+import ForgotPassword from './pages/ForgotPassword';
+
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const { userProfile, loading } = useAuth();
@@ -36,6 +38,8 @@ function AppRoutes() {
           <Route path="/property/:id" element={<PropertyDetail />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+
 
           {/* Any logged-in user */}
           <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />

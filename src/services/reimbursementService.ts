@@ -1,5 +1,5 @@
 import {
-  collection, doc, addDoc, updateDoc, getDocs,
+  collection, doc, addDoc, updateDoc, deleteDoc, getDocs,
   query, where, orderBy, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -56,4 +56,12 @@ export const getAllReimbursements = async (): Promise<ReimbursementRequest[]> =>
   const q = query(collection(db, COL), orderBy('createdAt', 'desc'));
   const snap = await getDocs(q);
   return snap.docs.map(normalize);
+};
+
+export const updateReimbursement = async (id: string, data: Partial<ReimbursementRequest>): Promise<void> => {
+  await updateDoc(doc(db, COL, id), data as any);
+};
+
+export const deleteReimbursement = async (id: string): Promise<void> => {
+  await deleteDoc(doc(db, COL, id));
 };

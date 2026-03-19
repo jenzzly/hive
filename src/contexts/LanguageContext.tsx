@@ -14,7 +14,8 @@ type TranslationKey =
   | 'applyFilters' | 'reset' | 'longTermRentals' | 'heroTitle' | 'heroSub'
   | 'name' | 'email' | 'password' | 'language' | 'saveChanges' | 'userSettings'
   | 'changePassword' | 'newPassword' | 'confirmPassword' | 'profileUpdated'
-  | 'passwordUpdated' | 'english' | 'french' | 'kinyarwanda';
+  | 'passwordUpdated' | 'english' | 'french' | 'kinyarwanda' | 'forgotPassword'
+  | 'sendResetLink' | 'resetEmailSent' | 'backToLogin' | 'resetPassword';
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -46,7 +47,9 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     changePassword: 'Change Password', newPassword: 'New Password',
     confirmPassword: 'Confirm Password', profileUpdated: 'Profile updated!',
     passwordUpdated: 'Password updated!', english: 'English', french: 'French',
-    kinyarwanda: 'Kinyarwanda',
+    kinyarwanda: 'Kinyarwanda', forgotPassword: 'Forgot password?',
+    sendResetLink: 'Send Reset Link', resetEmailSent: 'Reset link sent! Check your email.',
+    backToLogin: 'Back to Login', resetPassword: 'Reset Password',
   },
   fr: {
     browse: 'Parcourir', dashboard: 'Tableau de bord', myProperty: 'Ma Propriété',
@@ -77,7 +80,9 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     changePassword: 'Changer le mot de passe', newPassword: 'Nouveau mot de passe',
     confirmPassword: 'Confirmer le mot de passe', profileUpdated: 'Profil mis à jour!',
     passwordUpdated: 'Mot de passe mis à jour!', english: 'Anglais', french: 'Français',
-    kinyarwanda: 'Kinyarwanda',
+    kinyarwanda: 'Kinyarwanda', forgotPassword: 'Mot de passe oublié ?',
+    sendResetLink: 'Envoyer le lien', resetEmailSent: 'Lien envoyé ! Vérifiez vos emails.',
+    backToLogin: 'Retour à la connexion', resetPassword: 'Réinitialiser',
   },
   rw: {
     browse: 'Reba', dashboard: 'Ikibaho', myProperty: 'Inzu Yanjye',
@@ -108,7 +113,9 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     changePassword: 'Hindura ijambo ry\'ibanga', newPassword: 'Ijambo ry\'ibanga rishya',
     confirmPassword: 'Emeza ijambo ry\'ibanga', profileUpdated: 'Umwirondoro wasuzumwe!',
     passwordUpdated: 'Ijambo ry\'ibanga ryahindutse!', english: 'Icyongereza', french: 'Igifaransa',
-    kinyarwanda: 'Kinyarwanda',
+    kinyarwanda: 'Kinyarwanda', forgotPassword: 'Wibagiwe ijambo ry\'ibanga?',
+    sendResetLink: 'Ohereza ihuzanshu', resetEmailSent: 'Ihuza ryo guhindura ryoherejwe! Reba imeyili yawe.',
+    backToLogin: 'Subira aho winjirira', resetPassword: 'Hindura ijambo ry\'ibanga',
   },
 };
 

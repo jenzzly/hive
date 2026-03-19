@@ -29,7 +29,7 @@ export const updateContract = async (
   id: string,
   data: Partial<Contract>
 ): Promise<void> => {
-  await updateDoc(doc(db, COL, id), data);
+  await updateDoc(doc(db, COL, id), data as any);
 };
 
 export const deleteContract = async (id: string): Promise<void> => {
@@ -58,6 +58,12 @@ export const getOwnerContracts = async (ownerId: string): Promise<Contract[]> =>
 
 export const getPropertyContracts = async (propertyId: string): Promise<Contract[]> => {
   const q = query(collection(db, COL), where('propertyId', '==', propertyId));
+  const snap = await getDocs(q);
+  return snap.docs.map(normalize);
+};
+
+export const getAllContracts = async (): Promise<Contract[]> => {
+  const q = query(collection(db, COL), orderBy('createdAt', 'desc'));
   const snap = await getDocs(q);
   return snap.docs.map(normalize);
 };

@@ -127,8 +127,11 @@ firebase deploy --only firestore:indexes
 
 ---
 
+```bash
 npm run build
 wrangler pages deploy dist --project-name=terrra
+firebase deploy --only firestore:rules --project hive-def63
+```
 
 
 ## User Roles

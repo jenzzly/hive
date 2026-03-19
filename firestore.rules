@@ -13,8 +13,12 @@ service cloud.firestore {
     function isTenant()     { return authed() && role() == 'tenant'; }
     function isPriv()       { return isSuperAdmin() || isAdmin(); }
 
+    // ── SUPER ADMIN UNIVERSAL ACCESS ──
+    match /{document=**} {
+      allow read, write: if isSuperAdmin();
+    }
+
     // ── USERS ──
-    // Any authenticated user can read profiles (tenants need owner email for contact/booking)
     match /users/{userId} {
       allow read:   if authed();
       allow create: if authed() && uid() == userId;
@@ -58,7 +62,6 @@ service cloud.firestore {
     }
 
     // ── RENT PAYMENTS ──
-    // Tenants submit proof; owners verify; admins/superAdmins see all
     match /rentPayments/{payId} {
       allow read: if isPriv()
         || (authed() && (resource.data.tenantId == uid() || resource.data.ownerId == uid()));
@@ -70,7 +73,6 @@ service cloud.firestore {
     }
 
     // ── REIMBURSEMENT REQUESTS ──
-    // Tenants create; owners approve/reject/mark paid; admins see all
     match /reimbursementRequests/{rId} {
       allow read: if isPriv()
         || (authed() && (resource.data.tenantId == uid() || resource.data.ownerId == uid()));
@@ -82,6 +84,11 @@ service cloud.firestore {
     }
 
     // ── PLATFORM SETTINGS ──
+    match /platformSettings/{docId} {
+      allow read:  if authed();
+      allow write: if isSuperAdmin();
+    }
+
     match /platform/{docId} {
       allow read:  if authed();
       allow write: if isSuperAdmin();
