@@ -55,6 +55,19 @@ export interface Property {
   createdAt: string;
 }
 
+export interface Unit {
+  id: string;
+  propertyId: string;
+  title: string;
+  description: string;
+  price: number;
+  currency: Currency;
+  status: PropertyStatus;
+  images: string[];
+  amenities?: string[];
+  createdAt: string;
+}
+
 export type ContractStatus = 'active' | 'expired' | 'on_notice';
 
 export interface Contract {
@@ -99,6 +112,7 @@ export type BookingStatus = 'pending' | 'approved' | 'rejected';
 export interface BookingRequest {
   id: string;
   propertyId: string;
+  unitId?: string; // Optional if booking a specific unit
   tenantId: string;
   ownerId: string;
   message: string;
@@ -110,6 +124,8 @@ export interface PlatformSettings {
   serviceFeePercent: number;
   serviceFeeFixed: number;
   serviceFeeType: 'percent' | 'fixed';
+  defaultCurrency: Currency;
+  defaultLanguage: Language;
   updatedAt: string;
   updatedBy: string;
 }

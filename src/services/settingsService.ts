@@ -1,25 +1,32 @@
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Currency } from '../types';
+import type { PlatformSettings } from '../types';
 
-export interface PlatformConfig {
-  defaultCurrency: Currency;
-  updatedAt: any;
-}
+const COL = 'platform';
+const DOC_ID = 'settings';
 
-const COL = 'platformSettings';
-const DOC_ID = 'config';
-
-export const getPlatformConfig = async (): Promise<PlatformConfig> => {
+export const getPlatformConfig = async (): Promise<PlatformSettings> => {
   const snap = await getDoc(doc(db, COL, DOC_ID));
   if (snap.exists()) {
-    return snap.data() as PlatformConfig;
+    const data = snap.data();
+    return {
+      ...data,
+      updatedAt: data.updatedAt?.toDate?.()?.toISOString?.() ?? data.updatedAt ?? '',
+    } as PlatformSettings;
   }
   // Default fallback
-  return { defaultCurrency: 'USD', updatedAt: null };
+  return { 
+    serviceFeePercent: 0, 
+    serviceFeeFixed: 0, 
+    serviceFeeType: 'percent', 
+    defaultCurrency: 'USD', 
+    defaultLanguage: 'en',
+    updatedAt: '',
+    updatedBy: 'system'
+  };
 };
 
-export const updatePlatformConfig = async (config: Partial<PlatformConfig>): Promise<void> => {
+export const updatePlatformConfig = async (config: Partial<PlatformSettings>): Promise<void> => {
   await setDoc(doc(db, COL, DOC_ID), {
     ...config,
     updatedAt: serverTimestamp(),

@@ -77,6 +77,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 'var(--radius-lg)',
     overflow: 'hidden',
     aspectRatio: '16/9',
+    maxHeight: 'min(620px, 80vh)',
     cursor: 'pointer',
     background: '#000',
   },

@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { getPlatformConfig, type PlatformConfig } from '../services/settingsService';
-import type { Currency } from '../types';
+import { getPlatformConfig } from '../services/settingsService';
+import type { Currency, PlatformSettings, Language } from '../types';
 
 interface SettingsContextType {
-  settings: PlatformConfig | null;
+  settings: PlatformSettings | null;
   defaultCurrency: Currency;
+  defaultLanguage: Language;
   loading: boolean;
   refreshSettings: () => Promise<void>;
 }
@@ -12,7 +13,7 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [settings, setSettings] = useState<PlatformConfig | null>(null);
+  const [settings, setSettings] = useState<PlatformSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refreshSettings = async () => {
@@ -31,9 +32,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const defaultCurrency: Currency = settings?.defaultCurrency || 'USD';
+  const defaultLanguage: Language = settings?.defaultLanguage || 'en';
 
   return (
-    <SettingsContext.Provider value={{ settings, defaultCurrency, loading, refreshSettings }}>
+    <SettingsContext.Provider value={{ settings, defaultCurrency, defaultLanguage, loading, refreshSettings }}>
       {children}
     </SettingsContext.Provider>
   );

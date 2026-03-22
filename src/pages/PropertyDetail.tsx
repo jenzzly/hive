@@ -12,7 +12,8 @@ import PropertyGallery from '../components/PropertyGallery';
 import PropertyMap from '../components/PropertyMap';
 import { useSettings } from '../contexts/SettingsContext';
 import { formatCurrency } from '../utils/format';
-import type { Property, User } from '../types';
+import type { Property, User, Unit } from '../types';
+import { getPropertyUnits } from '../services/unitService';
 
 const TYPE_LABELS: Record<string, string> = {
   apartment: 'Apartment', house: 'House', studio: 'Studio',
@@ -38,10 +39,12 @@ export default function PropertyDetail() {
   const [booked, setBooked] = useState(false);
   const [panel, setPanel] = useState<PanelMode>('book');
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
 
   useEffect(() => {
-    const h = () => setIsMobile(window.innerWidth <= 768);
+    const h = () => setIsMobile(window.innerWidth <= 900);
     window.addEventListener('resize', h);
     return () => window.removeEventListener('resize', h);
   }, []);
@@ -52,6 +55,7 @@ export default function PropertyDetail() {
     getProperty(id).then(p => {
       if (!p) { navigate('/'); return; }
       setProperty(p);
+      getPropertyUnits(id).then(setUnits);
       setLoading(false);
     }).catch(() => navigate('/'));
   }, [id]);
@@ -92,6 +96,7 @@ export default function PropertyDetail() {
     try {
       await createBookingRequest({
         propertyId: property.id,
+        unitId: selectedUnit?.id,
         tenantId: userProfile.id,
         ownerId: property.ownerId,
         message: bookingMsg,
@@ -99,7 +104,7 @@ export default function PropertyDetail() {
       // Pre-create conversation thread so owner can reply immediately
       await getOrCreateConversation(
         property.id,
-        property.title,
+        property.title + (selectedUnit ? ` - ${selectedUnit.title}` : ''),
         property.ownerId,
         userProfile.id,
       );
@@ -109,7 +114,7 @@ export default function PropertyDetail() {
           owner.email,
           owner.name,
           userProfile.name,
-          property.title,
+          property.title + (selectedUnit ? ` - ${selectedUnit.title}` : ''),
           bookingMsg,
         );
       }
@@ -130,12 +135,17 @@ export default function PropertyDetail() {
 
   // The action card content
   const ActionCard = (
-    <div className="card" style={{ padding: 24, position: isMobile ? 'static' : 'sticky', top: 80 }
-    }>
+    <div className="card" style={{ 
+      padding: 24, 
+      position: isMobile ? 'static' : 'sticky', 
+      top: 92, 
+      zIndex: 10,
+      boxShadow: 'var(--shadow-lg)'
+    }}>
       {/* Price */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 4 }}>
         <span style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--teal)', fontWeight: 700 }}>
-          {formatCurrency(property.price, property.currency || 'USD')}
+          {formatCurrency(selectedUnit ? selectedUnit.price : property.price, (selectedUnit ? selectedUnit.currency : property.currency) || 'USD')}
         </span>
         <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}> {t('perMonth')} </span>
       </div>
@@ -272,16 +282,28 @@ export default function PropertyDetail() {
         {t('back')}
       </button>
 
-      < div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 340px', gap: 28, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) 340px', gap: 28, alignItems: 'start' }}>
         {/* Left column */}
-        <div>
+        <div style={{ minWidth: 0 }}>
           {
-            property.images?.length > 0 && (
-              <PropertyGallery images={property.images} title={property.title} />
+            (selectedUnit || property).images?.length > 0 && (
+              <PropertyGallery 
+                images={selectedUnit ? selectedUnit.images : property.images} 
+                title={selectedUnit ? selectedUnit.title : property.title} 
+              />
             )
           }
 
           <div className="card" style={{ padding: 28, marginTop: 20 }}>
+            {selectedUnit && (
+              <button 
+                className="btn btn-ghost btn-sm" 
+                onClick={() => setSelectedUnit(null)}
+                style={{ marginBottom: 16, color: 'var(--teal)' }}
+              >
+                ← Back to Property Units
+              </button>
+            )}
             {(displayCategory || displayType) && (
               <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
                 {displayCategory && <span className="badge badge-teal" > {displayCategory} </span>}
@@ -289,11 +311,51 @@ export default function PropertyDetail() {
               </div>
             )}
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', marginBottom: 8 }}>
-              {property.title}
+              {selectedUnit ? selectedUnit.title : property.title}
             </h1>
             < p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.7 }}>
-              {property.description}
+              {selectedUnit ? selectedUnit.description : property.description}
             </p>
+
+            {!selectedUnit && units.length > 0 && (
+              <div style={{ marginTop: 32, borderTop: '1px solid var(--border)', paddingTop: 24 }}>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', marginBottom: 16 }}>
+                  Available Units ({units.length})
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+                  {units.map(unit => (
+                    <div 
+                      key={unit.id} 
+                      className="card" 
+                      style={{ 
+                        padding: 16, 
+                        cursor: 'pointer', 
+                        transition: 'transform 0.2s',
+                        border: '1px solid var(--border)'
+                      }}
+                      onClick={() => setSelectedUnit(unit)}
+                      onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
+                      onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                    >
+                      <div style={{ height: 120, borderRadius: 8, overflow: 'hidden', marginBottom: 12 }}>
+                        <img 
+                          src={unit.images[0] || 'https://via.placeholder.com/300x200?text=No+Image'} 
+                          alt={unit.title}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      </div>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: 4 }}>{unit.title}</div>
+                      <div style={{ color: 'var(--teal)', fontWeight: 700, fontSize: '1.1rem' }}>
+                        {formatCurrency(unit.price, unit.currency)}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                        {unit.status === 'available' ? '✅ Available' : '❌ Occupied'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {
               property.amenities?.length > 0 && (

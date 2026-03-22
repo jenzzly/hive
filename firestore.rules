@@ -34,6 +34,12 @@ service cloud.firestore {
       allow update, delete: if isPriv() || (isOwner() && resource.data.ownerId == uid());
     }
 
+    // ── UNITS ──
+    match /units/{unitId} {
+      allow read: if true; 
+      allow write: if authed(); // Simple rule for now, can be narrowed later
+    }
+
     // ── CONTRACTS ──
     match /contracts/{contractId} {
       allow read: if isPriv()

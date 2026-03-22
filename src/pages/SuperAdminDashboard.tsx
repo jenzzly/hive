@@ -4,13 +4,17 @@ import { getAllProperties, deleteProperty, updateProperty, createProperty } from
 import { getAllPayments, updatePaymentStatus, deletePayment, updatePayment, createRentPayment } from '../services/paymentService';
 import { getAllReimbursements, updateReimbursementStatus, deleteReimbursement, updateReimbursement, createReimbursementRequest } from '../services/reimbursementService';
 import { getAllContracts, deleteContract, updateContract, createContract } from '../services/contractService';
-import { getPlatformConfig, updatePlatformConfig, type PlatformConfig } from '../services/settingsService';
+import { getPlatformConfig, updatePlatformConfig } from '../services/settingsService';
 import SuperAdminAnalytics from '../components/SuperAdminAnalytics';
 import { useToast } from '../hooks/useToast';
 import { useLang } from '../contexts/LanguageContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { formatCurrency } from '../utils/format';
-import type { User, UserRole, Property, RentPayment, ReimbursementRequest, Contract, Currency, PropertyCategory, PropertyType, ContractStatus, ReimbursementStatus, PaymentStatus } from '../types';
+import type { 
+  User, UserRole, Property, RentPayment, ReimbursementRequest, 
+  Contract, Currency, PropertyCategory, PropertyType, 
+  ContractStatus, ReimbursementStatus, PaymentStatus, PlatformSettings 
+} from '../types';
 
 type Tab = 'users' | 'properties' | 'payments' | 'reimbursements' | 'contracts' | 'analytics' | 'settings';
 
@@ -221,13 +225,13 @@ export default function SuperAdminDashboard() {
     await deleteContract(id); show('Deleted.'); await load();
   };
 
-  const handleUpdateCurrency = async (cur: Currency) => {
+  const handleUpdatePlatformSetting = async (updates: Partial<PlatformSettings>) => {
     try {
-      await updatePlatformConfig({ defaultCurrency: cur });
+      await updatePlatformConfig(updates);
       await refreshSettings();
-      show(`Default currency set to ${cur}`);
+      show(`Platform settings updated.`);
     } catch (err: any) {
-      show('Failed to update currency', 'error');
+      show('Failed to update platform settings', 'error');
     }
   };
 
@@ -644,23 +648,109 @@ export default function SuperAdminDashboard() {
         <SuperAdminAnalytics />
       ) : (
         /* Settings Tab */
-        <div className="card" style={{ padding: 32, maxWidth: 600 }}>
-          <h3 style={{ marginBottom: 20 }}>Platform Global Settings</h3>
-          <div style={{ marginBottom: 24 }}>
-            <label className="form-label" style={{ fontSize: '1rem', marginBottom: 12 }}>Default Platform Currency</label>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 16 }}>This setting controls the default currency for new properties and payments.</p>
-            <div style={{ display: 'flex', gap: 20 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: platformConfig?.defaultCurrency === 'USD' ? 600 : 400 }}>
-                <input type="radio" name="currency" checked={platformConfig?.defaultCurrency === 'USD'} onChange={() => handleUpdateCurrency('USD')} /> USD ($)
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: platformConfig?.defaultCurrency === 'RWF' ? 600 : 400 }}>
-                <input type="radio" name="currency" checked={platformConfig?.defaultCurrency === 'RWF'} onChange={() => handleUpdateCurrency('RWF')} /> RWF (FRW)
-              </label>
+        <div className="card" style={{ padding: 32, maxWidth: 640 }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', marginBottom: 24, color: 'var(--terra-900)' }}>Platform Global Settings</h2>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+            {/* Currency & Language */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 600 }}>Default Platform Currency</label>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 12 }}>Controls default currency for new records.</p>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  {['USD', 'RWF'].map(cur => (
+                    <button 
+                      key={cur}
+                      className={`btn btn-sm ${platformConfig?.defaultCurrency === cur ? 'btn-primary' : 'btn-ghost'}`}
+                      onClick={() => handleUpdatePlatformSetting({ defaultCurrency: cur as Currency })}
+                    >
+                      {cur}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 600 }}>Platform Language</label>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 12 }}>Global default for the interface.</p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[
+                    { code: 'en', label: 'English' },
+                    { code: 'fr', label: 'Français' },
+                    { code: 'rw', label: 'Kinyarwanda' }
+                  ].map(lang => (
+                    <button 
+                      key={lang.code}
+                      className={`btn btn-sm ${platformConfig?.defaultLanguage === lang.code ? 'btn-primary' : 'btn-ghost'}`}
+                      style={{ padding: '6px 10px', fontSize: '0.75rem' }}
+                      onClick={() => handleUpdatePlatformSetting({ defaultLanguage: lang.code as any })}
+                    >
+                      {lang.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '24px 0' }} />
-          <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            Last updated: {platformConfig?.updatedAt ? new Date(platformConfig.updatedAt.toDate?.() || platformConfig.updatedAt).toLocaleString() : 'Never'}
+
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: 0 }} />
+
+            {/* Service Fees */}
+            <div>
+              <label className="form-label" style={{ fontWeight: 600, fontSize: '1rem' }}>Global Platform Fees</label>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: 20 }}>
+                These fees are applied to all rentals unless an owner has a custom fee set.
+              </p>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, background: 'var(--surface2)', padding: 16, borderRadius: 12, border: '1px solid var(--border)' }}>
+                <div className="form-group">
+                  <label className="form-label">Fee Type</label>
+                  <select 
+                    className="form-input" 
+                    value={platformConfig?.serviceFeeType} 
+                    onChange={e => handleUpdatePlatformSetting({ serviceFeeType: e.target.value as any })}
+                  >
+                    <option value="percent">Percentage (%)</option>
+                    <option value="fixed">Fixed Amount</option>
+                  </select>
+                </div>
+
+                {platformConfig?.serviceFeeType === 'percent' ? (
+                  <div className="form-group">
+                    <label className="form-label">Percentage (%)</label>
+                    <div style={{ position: 'relative' }}>
+                      <input 
+                        type="number" 
+                        className="form-input" 
+                        value={platformConfig?.serviceFeePercent}
+                        onChange={e => handleUpdatePlatformSetting({ serviceFeePercent: Number(e.target.value) })}
+                      />
+                      <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }}>%</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="form-group">
+                    <label className="form-label">Fixed Amount ({platformConfig?.defaultCurrency})</label>
+                    <input 
+                      type="number" 
+                      className="form-input" 
+                      value={platformConfig?.serviceFeeFixed}
+                      onChange={e => handleUpdatePlatformSetting({ serviceFeeFixed: Number(e.target.value) })}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: 0 }} />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Last Sync: {platformConfig?.updatedAt ? new Date(platformConfig.updatedAt).toLocaleString() : 'Never'}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                By: <strong>{platformConfig?.updatedBy || 'System'}</strong>
+              </div>
+            </div>
           </div>
         </div>
       )}

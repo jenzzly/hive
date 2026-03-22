@@ -16,6 +16,7 @@ import { useToast } from '../hooks/useToast';
 import ContractViewer from '../components/ContractViewer';
 import PropertyTypeSelector from '../components/PropertyTypeSelector';
 import PropertyMap from '../components/PropertyMap';
+import UnitManager from '../components/UnitManager';
 import type {
   Property, Contract, MaintenanceRequest, PropertyStatus,
   BookingRequest, RentPayment, ReimbursementRequest, PropertyCategory,
@@ -314,6 +315,7 @@ export default function OwnerDashboard() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 6;
+  const [managingUnits, setManagingUnits] = useState<Property | null>(null);
 
   useEffect(() => { setPage(1); }, [tab, search]);
 
@@ -774,6 +776,7 @@ export default function OwnerDashboard() {
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(p)}>Edit</button>
+                      <button className="btn btn-primary btn-sm" onClick={() => setManagingUnits(p)}>Units</button>
                       <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p.id)}>Delete</button>
                     </div>
                   </div>
@@ -855,6 +858,7 @@ export default function OwnerDashboard() {
           })}
         </div>
       )}
+      {managingUnits && <UnitManager property={managingUnits} onClose={() => setManagingUnits(null)} />} 
     </div>
   );
 }
