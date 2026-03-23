@@ -92,6 +92,7 @@ export default function PropertyCard({ property, showActions, onEdit, onDelete, 
         {/* Owner actions */}
         {showActions && (
           <div style={S.actions}>
+            <Link to={`/property/${property.id}`} className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }}>👁️ View</Link>
             <button className="btn btn-secondary btn-sm" onClick={() => onEdit?.(property)}>Edit</button>
             <button
               className="btn btn-ghost btn-sm"
@@ -103,7 +104,7 @@ export default function PropertyCard({ property, showActions, onEdit, onDelete, 
               className="btn btn-danger btn-sm"
               onClick={() => onDelete?.(property.id)}
             >
-              Delete
+              Del
             </button>
           </div>
         )}

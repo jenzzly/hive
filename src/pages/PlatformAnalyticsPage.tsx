@@ -131,7 +131,7 @@ export default function PlatformAnalyticsPage() {
 
   const handleSaveFee = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userProfile) return;
+    if (!userProfile || !data) return;
     setSaving(true);
     try {
       await savePlatformSettings({
@@ -139,6 +139,8 @@ export default function PlatformAnalyticsPage() {
         serviceFeePercent: Number(feePercent),
         serviceFeeFixed: Number(feeFixed),
         updatedBy: userProfile.id,
+        defaultCurrency: data.serviceFee?.defaultCurrency || 'USD',
+        defaultLanguage: data.serviceFee?.defaultLanguage || 'en',
       });
       show('Platform fee updated! All income projections now reflect the new rate.');
       load();
@@ -166,13 +168,20 @@ export default function PlatformAnalyticsPage() {
 
   if (!data) return null;
 
-  const { properties, contracts, totalUsers, serviceFee } = data;
+  const { properties, contracts, units, payments, totalUsers, serviceFee } = data;
   const activeContracts = contracts.filter(c => c.status === 'active');
   const occupied = properties.filter(p => p.status === 'occupied');
   const publicProps = properties.filter(p => p.isPublic && p.status === 'available');
 
   const grossMRR = activeContracts.filter(c => (c.currency || 'USD') === defaultCurrency).reduce((s, c) => s + c.rentAmount, 0);
   const feesMRR = activeContracts.filter(c => (c.currency || 'USD') === defaultCurrency).reduce((s, c) => s + calcFee(c.rentAmount, serviceFee), 0);
+  
+  // Actual verified fee revenue
+  const totalVerifiedFees = (payments || [])
+    .filter(p => p.status === 'verified' && p.currency === defaultCurrency)
+    .reduce((s, p) => s + calcFee(Number(p.amount), serviceFee), 0);
+
+  const totalUnits = units.length || properties.length;
   const occupancyRate = properties.length > 0 ? Math.round((occupied.length / properties.length) * 100) : 0;
 
   const projection = buildProjection(data, defaultCurrency, 12);
@@ -187,6 +196,8 @@ export default function PlatformAnalyticsPage() {
     serviceFeePercent: Number(feePercent),
     serviceFeeFixed: Number(feeFixed),
     updatedAt: '', updatedBy: '',
+    defaultCurrency: data.serviceFee?.defaultCurrency || 'USD',
+    defaultLanguage: data.serviceFee?.defaultLanguage || 'en',
   };
   const previewMRR = activeContracts
     .filter(c => c.currency === defaultCurrency)
@@ -233,11 +244,13 @@ export default function PlatformAnalyticsPage() {
       </div>
 
       {/* KPI cards */}
-      <div className="grid-4" style={{ marginBottom: 28 }}>
-        <KpiCard label="Platform MRR" value={formatCurrency(grossMRR, defaultCurrency)} sub={`${activeContracts.length} contracts`} color="var(--teal)" icon="💰" />
-        <KpiCard label="Fee revenue / mo" value={formatCurrency(feesMRR, defaultCurrency)} sub={`Current: ${feeLabel}`} color="#7c3aed" icon="🏦" />
-        <KpiCard label="Occupancy rate" value={`${occupancyRate}%`} sub={`${occupied.length} occupied · ${publicProps.length} public listings`} color={occupancyRate >= 75 ? 'var(--teal)' : '#f59e0b'} icon="🏠" />
-        <KpiCard label="Total users" value={String(totalUsers)} sub={`${properties.length} properties on platform`} color="#1d4ed8" icon="👥" />
+      <div className="grid-6" style={{ marginBottom: 28 }}>
+        <KpiCard label="Platform MRR" value={formatCurrency(grossMRR, defaultCurrency)} sub={`${activeContracts.length} active`} color="var(--teal)" icon="💰" />
+        <KpiCard label="Fees / mo" value={formatCurrency(feesMRR, defaultCurrency)} sub="Projected" color="#7c3aed" icon="🏦" />
+        <KpiCard label="Total Fees" value={formatCurrency(totalVerifiedFees, defaultCurrency)} sub="Verified income" color="#059669" icon="📈" />
+        <KpiCard label="Occupancy" value={`${occupancyRate}%`} sub={`${occupied.length} occupied`} color={occupancyRate >= 75 ? 'var(--teal)' : '#f59e0b'} icon="🏠" />
+        <KpiCard label="Properties" value={String(properties.length)} sub={`${publicProps.length} listed`} color="#1d4ed8" icon="🏘️" />
+        <KpiCard label="Units" value={String(totalUnits)} sub={`${totalUsers} users`} color="#3b82f6" icon="👥" />
       </div>
 
       {/* Fee control + revenue preview */}

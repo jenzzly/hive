@@ -50,7 +50,7 @@ function AppRoutes() {
       <div style={{ flex: 1 }}>
         <Routes>
           {/* Public */}
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<PublicRoute><Home /></PublicRoute>} />
           <Route path="/property/:id" element={<PropertyDetail />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
@@ -124,11 +124,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <LanguageProvider>
-        <SettingsProvider>
-          <AuthProvider>
+        <AuthProvider>
+          <SettingsProvider>
             <AppRoutes />
-          </AuthProvider>
-        </SettingsProvider>
+          </SettingsProvider>
+        </AuthProvider>
       </LanguageProvider>
     </BrowserRouter>
   );

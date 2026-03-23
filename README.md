@@ -69,28 +69,6 @@ npm install
 
 Copy `.env.example` to `.env` and fill in your credentials:
 
-```bash
-cp .env.example .env
-```
-
-```env
-# Firebase
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-
-# Cloudinary
-VITE_CLOUDINARY_CLOUD_NAME=your_cloud_name
-VITE_CLOUDINARY_UPLOAD_PRESET=your_upload_preset
-
-# EmailJS
-VITE_EMAILJS_SERVICE_ID=your_service_id
-VITE_EMAILJS_TEMPLATE_ID=your_template_id
-VITE_EMAILJS_PUBLIC_KEY=your_public_key
-```
 
 ### 6. Run Locally
 
@@ -170,53 +148,7 @@ Add all environment variables in Vercel's dashboard under Settings → Environme
 
 ---
 
-## Project Structure
 
-```
-hive/
-├── src/
-│   ├── components/
-│   │   ├── Navbar.tsx
-│   │   ├── PropertyCard.tsx
-│   │   ├── PropertyGallery.tsx
-│   │   ├── ContractViewer.tsx
-│   │   └── MaintenanceForm.tsx
-│   ├── pages/
-│   │   ├── Home.tsx
-│   │   ├── PropertyDetail.tsx
-│   │   ├── Login.tsx
-│   │   ├── Register.tsx
-│   │   ├── OwnerDashboard.tsx
-│   │   ├── TenantDashboard.tsx
-│   │   ├── ContractsPage.tsx
-│   │   ├── MaintenancePage.tsx
-│   │   └── AdminDashboard.tsx
-│   ├── services/
-│   │   ├── firebase.ts
-│   │   ├── authService.ts
-│   │   ├── propertyService.ts
-│   │   ├── contractService.ts
-│   │   └── maintenanceService.ts
-│   ├── utils/
-│   │   ├── cloudinaryUpload.ts
-│   │   └── emailService.ts
-│   ├── contexts/
-│   │   └── AuthContext.tsx
-│   ├── hooks/
-│   │   └── useToast.ts
-│   ├── types/
-│   │   └── index.ts
-│   ├── App.tsx
-│   ├── main.tsx
-│   └── index.css
-├── firestore.rules
-├── firestore.indexes.json
-├── firebase.json
-├── .env.example
-├── package.json
-├── vite.config.ts
-└── tsconfig.json
-```
 
 ---
 

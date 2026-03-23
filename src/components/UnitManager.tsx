@@ -15,6 +15,9 @@ export default function UnitManager({ property, onClose }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 5;
 
   const [form, setForm] = useState({
     title: '',
@@ -52,6 +55,7 @@ export default function UnitManager({ property, onClose }: Props) {
 
       const unitData = {
         propertyId: property.id,
+        ownerId: property.ownerId,
         title: form.title,
         description: form.description,
         price: Number(form.price),
@@ -114,13 +118,24 @@ export default function UnitManager({ property, onClose }: Props) {
 
         <div style={S.content}>
           {!showForm && (
-            <button 
-              className="btn btn-primary" 
-              style={{ marginBottom: 20 }}
-              onClick={() => setShowForm(true)}
-            >
-              + Add New Unit
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 12 }}>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => setShowForm(true)}
+              >
+                + Add Unit
+              </button>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <input 
+                  className="form-input" 
+                  placeholder="Search units..." 
+                  value={search} 
+                  onChange={e => { setSearch(e.target.value); setPage(1); }}
+                  style={{ paddingLeft: 34, height: 42, minHeight: 42 }}
+                />
+                <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }}>🔍</span>
+              </div>
+            </div>
           )}
 
           {showForm && (
@@ -202,34 +217,95 @@ export default function UnitManager({ property, onClose }: Props) {
             <div className="spinner" />
           ) : (
             <div style={S.unitList}>
-              {units.length === 0 ? (
-                <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No units added yet.</p>
-              ) : (
-                units.map(unit => (
-                  <div key={unit.id} style={S.unitItem}>
-                    <div style={{ display: 'flex', gap: 16 }}>
-                      <img 
-                        src={unit.images[0] || 'https://via.placeholder.com/100x100?text=No+Image'} 
-                        alt={unit.title} 
-                        style={S.unitThumb}
-                      />
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{unit.title}</div>
-                        <div style={{ color: 'var(--teal)', fontWeight: 700 }}>
-                          {formatCurrency(unit.price, unit.currency)}
+              {(() => {
+                const filtered = units.filter(u => 
+                  u.title.toLowerCase().includes(search.toLowerCase()) || 
+                  u.description.toLowerCase().includes(search.toLowerCase())
+                );
+                const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+                const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+
+                if (filtered.length === 0) {
+                  return <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No units found.</p>;
+                }
+
+                return (
+                  <>
+                    {paginated.map(unit => {
+                      const isExpanded = editingId === `view-${unit.id}`;
+                      return (
+                        <div key={unit.id} style={{ ...S.unitItem, flexDirection: 'column', alignItems: 'stretch' }}>
+                          <div 
+                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                            onClick={() => setEditingId(isExpanded ? null : `view-${unit.id}`)}
+                          >
+                            <div style={{ display: 'flex', gap: 16 }}>
+                              <img 
+                                src={unit.images[0] || 'https://via.placeholder.com/100x100?text=No+Image'} 
+                                alt={unit.title} 
+                                style={S.unitThumb}
+                              />
+                              <div>
+                                <div style={{ fontWeight: 600 }}>{unit.title}</div>
+                                <div style={{ color: 'var(--teal)', fontWeight: 700 }}>
+                                  {formatCurrency(unit.price, unit.currency)}
+                                </div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                  {unit.status}
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }} onClick={(e) => { e.stopPropagation(); handleEdit(unit); }}>Edit</button>
+                              <button className="btn btn-danger btn-sm" style={{ padding: '4px 8px' }} onClick={(e) => { e.stopPropagation(); handleDelete(unit.id); }}>Del</button>
+                            </div>
+                          </div>
+                          
+                          {isExpanded && (
+                            <div style={{ marginTop: 12, padding: 12, background: 'var(--surface2)', borderRadius: 8, fontSize: '0.88rem' }}>
+                              <div style={{ fontWeight: 600, marginBottom: 4, color: 'var(--text-primary)' }}>Description</div>
+                              <div style={{ color: 'var(--text-secondary)', marginBottom: 10 }}>{unit.description || 'No description provided.'}</div>
+                              
+                              {unit.amenities && unit.amenities.length > 0 && (
+                                <>
+                                  <div style={{ fontWeight: 600, marginBottom: 4, color: 'var(--text-primary)' }}>Amenities</div>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                    {unit.amenities.map(a => (
+                                      <span key={a} className="badge badge-outline" style={{ fontSize: '0.7rem' }}>{a}</span>
+                                    ))}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          {unit.status}
-                        </div>
+                      );
+                    })}
+
+                    {totalPages > 1 && (
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 20 }}>
+                        <button 
+                          className="btn btn-ghost btn-sm" 
+                          disabled={page === 1} 
+                          onClick={() => setPage(p => p - 1)}
+                        >
+                          Prev
+                        </button>
+                        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                          Page {page} of {totalPages}
+                        </span>
+                        <button 
+                          className="btn btn-ghost btn-sm" 
+                          disabled={page === totalPages} 
+                          onClick={() => setPage(p => p + 1)}
+                        >
+                          Next
+                        </button>
                       </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(unit)}>Edit</button>
-                      <button className="btn btn-danger btn-sm" onClick={() => handleDelete(unit.id)}>Delete</button>
-                    </div>
-                  </div>
-                ))
-              )}
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
         </div>

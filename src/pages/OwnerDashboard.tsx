@@ -768,16 +768,22 @@ export default function OwnerDashboard() {
                 <div key={p.id} className="card" style={{ overflow: 'hidden' }}>
                   {p.images?.[0] && <img src={p.images[0]} alt={p.title} style={{ width: '100%', height: 160, objectFit: 'cover' }} />}
                   <div style={{ padding: 16 }}>
-                    <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '1.05rem', marginBottom: 3 }}>{p.title}</div>
+                    <div 
+                      style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '1.05rem', marginBottom: 3, cursor: 'pointer', color: 'var(--terra-900)' }}
+                      onClick={() => navigate(`/property/${p.id}`)}
+                    >
+                      {p.title}
+                    </div>
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 10 }}>📍 {p.location}</div>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
                       <span className={`badge ${p.status === 'available' ? 'badge-green' : 'badge-amber'}`}>{p.status}</span>
                       <span className="badge badge-teal">{formatCurrency(p.price, (p as any).currency || 'USD')}/mo</span>
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(p)}>Edit</button>
-                      <button className="btn btn-primary btn-sm" onClick={() => setManagingUnits(p)}>Units</button>
-                      <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p.id)}>Delete</button>
+                      <button className="btn btn-ghost btn-sm" style={{ padding: '6px 10px' }} onClick={() => navigate(`/property/${p.id}`)}>👁️ View</button>
+                      <button className="btn btn-ghost btn-sm" style={{ padding: '6px 10px' }} onClick={() => handleEdit(p)}>Edit</button>
+                      <button className="btn btn-primary btn-sm" style={{ padding: '6px 10px' }} onClick={() => setManagingUnits(p)}>Units</button>
+                      <button className="btn btn-danger btn-sm" style={{ padding: '6px 10px' }} onClick={() => handleDelete(p.id)}>Del</button>
                     </div>
                   </div>
                 </div>

@@ -28,8 +28,7 @@ service cloud.firestore {
 
     // ── PROPERTIES ──
     match /properties/{propertyId} {
-      allow read: if resource.data.isPublic == true && resource.data.status == 'available';
-      allow read: if authed();
+      allow read: if isPriv() || (resource.data.isPublic == true && resource.data.status == 'available') || authed();
       allow create: if isPriv() || (isOwner() && request.resource.data.ownerId == uid());
       allow update, delete: if isPriv() || (isOwner() && resource.data.ownerId == uid());
     }
@@ -37,25 +36,21 @@ service cloud.firestore {
     // ── UNITS ──
     match /units/{unitId} {
       allow read: if true; 
-      allow write: if authed(); // Simple rule for now, can be narrowed later
+      allow write: if isPriv() || (isOwner() && request.resource.data.ownerId == uid());
     }
 
     // ── CONTRACTS ──
     match /contracts/{contractId} {
-      allow read: if isPriv()
-        || (authed() && (resource.data.tenantId == uid() || resource.data.ownerId == uid()));
-      allow create: if isPriv() || (isOwner() && request.resource.data.ownerId == uid());
-      allow update: if isPriv() || (isOwner() && resource.data.ownerId == uid()) || (authed() && resource.data.tenantId == uid());
+      allow read: if isPriv() || (authed() && (resource.data.tenantId == uid() || resource.data.ownerId == uid()));
+      allow create, update: if isPriv() || (isOwner() && request.resource.data.ownerId == uid()) || (authed() && resource.data.tenantId == uid());
       allow delete: if isPriv();
     }
 
     // ── MAINTENANCE REQUESTS ──
     match /maintenanceRequests/{reqId} {
       allow read: if authed();
-      allow create: if authed()
-        && ((isTenant() && request.resource.data.tenantId == uid()) || isPriv());
-      allow update: if isPriv() || isOwner()
-        || (isTenant() && resource.data.tenantId == uid());
+      allow create: if authed() && ((isTenant() && request.resource.data.tenantId == uid()) || isPriv());
+      allow update: if isPriv() || isOwner() || (isTenant() && resource.data.tenantId == uid());
       allow delete: if isPriv();
     }
 
@@ -64,28 +59,22 @@ service cloud.firestore {
       allow read: if authed();
       allow create: if authed();
       allow update: if isPriv() || (isOwner() && resource.data.ownerId == uid());
-      allow delete: if isPriv() || (authed() && resource.data.tenantId == uid()) || (isOwner() && resource.data.ownerId == uid() && (resource.data.status == 'pending' || resource.data.status == 'rejected'));
+      allow delete: if isPriv() || (authed() && resource.data.tenantId == uid()) || (isOwner() && resource.data.ownerId == uid());
     }
 
     // ── RENT PAYMENTS ──
     match /rentPayments/{payId} {
-      allow read: if isPriv()
-        || (authed() && (resource.data.tenantId == uid() || resource.data.ownerId == uid()));
-      allow create: if authed()
-        && (isTenant() && request.resource.data.tenantId == uid()) || isPriv();
-      allow update: if isPriv()
-        || (isOwner() && resource.data.ownerId == uid());
+      allow read: if isPriv() || (authed() && (resource.data.tenantId == uid() || resource.data.ownerId == uid()));
+      allow create: if isPriv() || (authed() && (isTenant() && request.resource.data.tenantId == uid()) || (isOwner() && request.resource.data.ownerId == uid()));
+      allow update: if isPriv() || (isOwner() && resource.data.ownerId == uid());
       allow delete: if isPriv();
     }
 
     // ── REIMBURSEMENT REQUESTS ──
     match /reimbursementRequests/{rId} {
-      allow read: if isPriv()
-        || (authed() && (resource.data.tenantId == uid() || resource.data.ownerId == uid()));
-      allow create: if authed()
-        && (isTenant() && request.resource.data.tenantId == uid()) || isPriv();
-      allow update: if isPriv()
-        || (isOwner() && resource.data.ownerId == uid());
+      allow read: if isPriv() || (authed() && (resource.data.tenantId == uid() || resource.data.ownerId == uid()));
+      allow create: if isPriv() || (authed() && (isTenant() && request.resource.data.tenantId == uid()) || (isOwner() && request.resource.data.ownerId == uid()));
+      allow update: if isPriv() || (isOwner() && resource.data.ownerId == uid());
       allow delete: if isPriv();
     }
 
@@ -103,8 +92,7 @@ service cloud.firestore {
     // ── CONVERSATIONS ──
     match /conversations/{convId} {
       allow read: if authed();
-      allow create: if authed();
-      allow update: if authed();
+      allow create, update: if authed();
       allow delete: if isPriv();
     }
 

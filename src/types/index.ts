@@ -8,6 +8,7 @@ export interface User {
   email: string;
   role: UserRole;
   language?: Language;
+  currency?: Currency;
   location?: string;
   platformFee?: number; // Custom platform fee for owners (e.g. 5 for 5%)
   services?: string[]; // Array of services e.g. ['Legal', 'Maintenance', 'Tax']
@@ -58,6 +59,7 @@ export interface Property {
 export interface Unit {
   id: string;
   propertyId: string;
+  ownerId: string;
   title: string;
   description: string;
   price: number;

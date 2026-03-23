@@ -40,6 +40,7 @@ function buildMonthlyProjection(contracts: Contract[], fee: OwnerAnalytics['serv
 export default function OwnerAnalyticsPage() {
   const { userProfile } = useAuth();
   const { defaultCurrency } = useSettings();
+  
   const [data, setData] = useState<OwnerAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -53,7 +54,7 @@ export default function OwnerAnalyticsPage() {
   if (loading) return <div className="loading-center"><div className="spinner" /></div>;
   if (!data) return null;
 
-  const { properties, contracts, serviceFee } = data;
+  const { properties, contracts, units, payments, serviceFee } = data;
 
   const occupied = properties.filter(p => p.status === 'occupied');
   const available = properties.filter(p => p.status === 'available');
@@ -62,6 +63,14 @@ export default function OwnerAnalyticsPage() {
   const grossMonthly = activeContracts.filter(c => c.currency === defaultCurrency).reduce((s, c) => s + c.rentAmount, 0);
   const totalFee = activeContracts.filter(c => c.currency === defaultCurrency).reduce((s, c) => s + calcFee(c.rentAmount, serviceFee), 0);
   const netMonthly = grossMonthly - totalFee;
+
+  // Verified Payments
+  const totalCollected = (payments || [])
+    .filter(p => p.status === 'verified' && p.currency === defaultCurrency)
+    .reduce((s, p) => s + Number(p.amount), 0);
+  
+  // Stats
+  const totalUnits = units.length || properties.length; // fallback to property count if no units found (single-unit properties)
   const occupancyRate = properties.length > 0 ? Math.round((occupied.length / properties.length) * 100) : 0;
 
   const projection = buildMonthlyProjection(contracts, serviceFee, defaultCurrency, 12);
@@ -91,11 +100,13 @@ export default function OwnerAnalyticsPage() {
       </div>
 
       {/* KPI row */}
-      <div className="grid-4" style={{ marginBottom: 32 }}>
-        <KpiCard label="Gross / month" value={formatCurrency(grossMonthly, defaultCurrency)} sub={`${defaultCurrency} contracts`} color="var(--teal)" />
-        <KpiCard label="Platform fee" value={formatCurrency(-totalFee, defaultCurrency)} sub={feeLabel} color="#f59e0b" />
-        <KpiCard label="Net / month" value={formatCurrency(netMonthly, defaultCurrency)} sub="After platform fee" color="#1d4ed8" />
-        <KpiCard label="Occupancy" value={`${occupancyRate}%`} sub={`${occupied.length} / ${properties.length} properties`} color={occupancyRate >= 75 ? 'var(--teal)' : '#f59e0b'} />
+      <div className="grid-6" style={{ marginBottom: 32 }}>
+        <KpiCard label="Properties" value={String(properties.length)} sub="Active" color="var(--teal)" />
+        <KpiCard label="Units" value={String(totalUnits)} sub="Total units" color="#3b82f6" />
+        <KpiCard label="Total Collected" value={formatCurrency(totalCollected, defaultCurrency)} sub="Verified income" color="#059669" />
+        <KpiCard label="Gross / mo" value={formatCurrency(grossMonthly, defaultCurrency)} sub="Projected" color="var(--teal)" />
+        <KpiCard label="Net / mo" value={formatCurrency(netMonthly, defaultCurrency)} sub="After platform fee" color="#1d4ed8" />
+        <KpiCard label="Occupancy" value={`${occupancyRate}%`} sub={`${occupied.length} / ${properties.length} rented`} color={occupancyRate >= 75 ? 'var(--teal)' : '#f59e0b'} />
       </div>
 
       {/* Annual projection */}
@@ -197,7 +208,9 @@ export default function OwnerAnalyticsPage() {
                 <div key={p.id} style={S.propRow}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 500, fontSize: '0.88rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>{p.subcategory || p.type} · {p.location}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                      {units.filter(u => u.propertyId === p.id).length || 1} unit(s) · {p.subcategory || p.type} · {p.location}
+                    </div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     {gross > 0 ? (

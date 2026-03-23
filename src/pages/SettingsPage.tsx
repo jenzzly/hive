@@ -21,6 +21,7 @@ export default function SettingsPage() {
   const [name, setName] = useState(userProfile?.name || '');
   const [locationVal, setLocationVal] = useState(userProfile?.location || '');
   const [selectedLang, setSelectedLang] = useState<Language>(language);
+  const [selectedCurrency, setSelectedCurrency] = useState<string>(userProfile?.currency || 'USD');
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [currentPwd, setCurrentPwd] = useState('');
@@ -35,7 +36,12 @@ export default function SettingsPage() {
     e.preventDefault();
     setSavingProfile(true);
     try {
-      await updateUserProfile(userProfile.id, { name, location: locationVal, language: selectedLang });
+      await updateUserProfile(userProfile.id, { 
+        name, 
+        location: locationVal, 
+        language: selectedLang,
+        currency: selectedCurrency as any
+      });
       setLanguage(selectedLang);
       await refreshProfile();
       show(t('profileUpdated'));
@@ -121,6 +127,23 @@ export default function SettingsPage() {
                   >
                     <span style={S.langFlag}>{l.code === 'en' ? '🇬🇧' : l.code === 'fr' ? '🇫🇷' : '🇷🇼'}</span>
                     <span style={{ fontWeight: 500, fontSize: '0.88rem' }}>{l.native}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Default Currency</label>
+              <div style={S.langRow}>
+                {['USD', 'RWF'].map(c => (
+                  <button
+                    key={c}
+                    type="button"
+                    style={{ ...S.langBtn, ...(selectedCurrency === c ? S.langBtnActive : {}) }}
+                    onClick={() => setSelectedCurrency(c)}
+                  >
+                    <span style={{ fontWeight: 600, fontSize: '0.92rem' }}>{c}</span>
+                    <span style={{ fontSize: '0.82rem', opacity: 0.7 }}>{c === 'USD' ? 'US Dollar' : 'Rwandan Franc'}</span>
                   </button>
                 ))}
               </div>

@@ -57,14 +57,18 @@ function normContract(d: any): Contract {
 export interface OwnerAnalytics {
   properties: Property[];
   contracts: Contract[];
+  units: any[];
+  payments: any[];
   serviceFee: PlatformSettings | null;
 }
 
 export const getOwnerAnalytics = async (ownerId: string): Promise<OwnerAnalytics> => {
   // NO orderBy — avoids composite index requirement which triggers a false "permissions" error
-  const [propSnap, contractSnap, fee] = await Promise.all([
+  const [propSnap, contractSnap, unitSnap, paySnap, fee] = await Promise.all([
     getDocs(query(collection(db, 'properties'), where('ownerId', '==', ownerId))),
     getDocs(query(collection(db, 'contracts'), where('ownerId', '==', ownerId))),
+    getDocs(query(collection(db, 'units'), where('ownerId', '==', ownerId))),
+    getDocs(query(collection(db, 'rentPayments'), where('ownerId', '==', ownerId))),
     getPlatformSettings(),
   ]);
 
@@ -73,30 +77,38 @@ export const getOwnerAnalytics = async (ownerId: string): Promise<OwnerAnalytics
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const contracts = contractSnap.docs.map(normContract)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const units = unitSnap.docs.map(d => ({ ...d.data(), id: d.id }));
+  const payments = paySnap.docs.map(d => ({ ...d.data(), id: d.id }));
 
-  return { properties, contracts, serviceFee: fee };
+  return { properties, contracts, units, payments, serviceFee: fee };
 };
 
 // ─── Platform Analytics (admin / superAdmin) ─────────────────────────
 export interface PlatformAnalytics {
   properties: Property[];
   contracts: Contract[];
+  units: any[];
+  payments: any[];
   users: any[];
   totalUsers: number;
   serviceFee: PlatformSettings | null;
 }
 
 export const getPlatformAnalytics = async (): Promise<PlatformAnalytics> => {
-  const [propSnap, contractSnap, userSnap, fee] = await Promise.all([
+  const [propSnap, contractSnap, unitSnap, paySnap, userSnap, fee] = await Promise.all([
     getDocs(collection(db, 'properties')),
     getDocs(collection(db, 'contracts')),
+    getDocs(collection(db, 'units')),
+    getDocs(collection(db, 'rentPayments')),
     getDocs(collection(db, 'users')),
     getPlatformSettings(),
   ]);
 
   const properties = propSnap.docs.map(normProp);
   const contracts = contractSnap.docs.map(normContract);
+  const units = unitSnap.docs.map(d => ({ ...d.data(), id: d.id }));
+  const payments = paySnap.docs.map(d => ({ ...d.data(), id: d.id }));
   const users = userSnap.docs.map(d => ({ ...d.data(), id: d.id }));
 
-  return { properties, contracts, users, totalUsers: userSnap.size, serviceFee: fee };
+  return { properties, contracts, units, payments, users, totalUsers: userSnap.size, serviceFee: fee };
 };

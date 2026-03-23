@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { getPlatformConfig } from '../services/settingsService';
 import type { Currency, PlatformSettings, Language } from '../types';
+import { useAuth } from './AuthContext';
 
 interface SettingsContextType {
   settings: PlatformSettings | null;
@@ -13,6 +14,7 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { userProfile } = useAuth();
   const [settings, setSettings] = useState<PlatformSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -31,8 +33,11 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     refreshSettings();
   }, []);
 
-  const defaultCurrency: Currency = settings?.defaultCurrency || 'USD';
-  const defaultLanguage: Language = settings?.defaultLanguage || 'en';
+  const platformCurrency: Currency = settings?.defaultCurrency || 'USD';
+  const platformLanguage: Language = settings?.defaultLanguage || 'en';
+
+  const defaultCurrency: Currency = userProfile?.currency || platformCurrency;
+  const defaultLanguage: Language = userProfile?.language || platformLanguage;
 
   return (
     <SettingsContext.Provider value={{ settings, defaultCurrency, defaultLanguage, loading, refreshSettings }}>

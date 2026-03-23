@@ -271,7 +271,12 @@ export default function TenantDashboard() {
                 <div key={p.id} className="card" style={{ overflow: 'hidden' }}>
                   {p.images?.[0] && <img src={p.images[0]} alt={p.title} style={{ width: '100%', height: 160, objectFit: 'cover' }} />}
                   <div style={{ padding: 16 }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.98rem', marginBottom: 4 }}>{p.title}</div>
+                    <div 
+                      style={{ fontWeight: 600, fontSize: '0.98rem', marginBottom: 4, cursor: 'pointer', color: 'var(--terra-900)' }}
+                      onClick={() => window.open(`/property/${p.id}`, '_blank')}
+                    >
+                      {p.title}
+                    </div>
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 10 }}>📍 {p.location}</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
                       <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '8px 10px' }}>

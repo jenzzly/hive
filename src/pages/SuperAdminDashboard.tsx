@@ -312,6 +312,19 @@ export default function SuperAdminDashboard() {
             <div className="form-group"><label className="form-label">Name</label>
               <input className="form-input" value={editingUser.name} onChange={e => setEditingUser({ ...editingUser, name: e.target.value })} />
             </div>
+            <div className="form-group"><label className="form-label">Location</label>
+              <input className="form-input" value={editingUser.location || ''} onChange={e => setEditingUser({ ...editingUser, location: e.target.value })} placeholder="e.g. Kigali, Rwanda" />
+            </div>
+            <div className="form-group"><label className="form-label">Default Currency</label>
+              <select 
+                className="form-input" 
+                value={editingUser.currency || 'USD'} 
+                onChange={e => setEditingUser({ ...editingUser, currency: e.target.value as any })}
+              >
+                <option value="USD">USD - US Dollar</option>
+                <option value="RWF">RWF - Rwandan Franc</option>
+              </select>
+            </div>
             {editingUser.role === 'owner' && (
               <div className="form-group" style={{ marginTop: 12 }}>
                 <label className="form-label">Platform Fee (%)</label>
@@ -475,7 +488,7 @@ export default function SuperAdminDashboard() {
             <div style={MS.tableWrap}>
               <div style={{ overflowX: 'auto' }}>
                 <table style={MS.table}>
-                  <thead><tr>{['User', 'Email', 'Role', 'Fee %', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
+                  <thead><tr>{['User', 'Email', 'Role', 'Currency', 'Platform Fee', 'Actions'].map(h => <th key={h} style={MS.th}>{h}</th>)}</tr></thead>
                   <tbody>
                     {paginated.map(user => (
                       <tr key={user.id} style={MS.tr}>
@@ -500,6 +513,9 @@ export default function SuperAdminDashboard() {
                             </select>
                             <span className={`badge ${ROLE_COLORS[user.role] || 'badge-gray'}`}>{user.role}</span>
                           </div>
+                        </td>
+                        <td style={MS.td}>
+                          <span className="badge badge-outline" style={{ fontSize: '0.78rem' }}>{user.currency || 'USD'}</span>
                         </td>
                         <td style={MS.td}>
                           {user.role === 'owner' ? (
@@ -535,12 +551,21 @@ export default function SuperAdminDashboard() {
                   <tbody>
                     {paginated.map(p => (
                       <tr key={p.id} style={MS.tr}>
-                        <td style={MS.td}><div style={{ fontWeight: 500 }}>{p.title}</div><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.location}</div></td>
+                        <td style={MS.td}>
+                          <div 
+                            style={{ fontWeight: 500, cursor: 'pointer', color: 'var(--teal-dark)' }}
+                            onClick={() => window.open(`/property/${p.id}`, '_blank')}
+                          >
+                            {p.title}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.location}</div>
+                        </td>
                         <td style={MS.td}><span style={{ fontWeight: 600 }}>{formatCurrency(p.price, p.currency)}</span></td>
                         <td style={MS.td}><span className={`badge ${p.status === 'available' ? 'badge-green' : 'badge-amber'}`}>{p.status}</span></td>
                         <td style={MS.td}><span style={{ fontSize: '0.82rem', fontFamily: 'monospace' }}>{p.ownerId.slice(0, 8)}…</span></td>
                         <td style={MS.td}>
                           <div style={{ display: 'flex', gap: 6 }}>
+                            <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }} onClick={() => window.open(`/property/${p.id}`, '_blank')} title="View Public Page">👁️</button>
                             <button className="btn btn-secondary btn-sm" onClick={() => setEditingProperty(p)}>Edit</button>
                             <button className="btn btn-danger btn-sm" onClick={() => handleDeleteProperty(p.id)}>Delete</button>
                           </div>
