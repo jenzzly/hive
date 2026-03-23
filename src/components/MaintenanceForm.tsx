@@ -1,24 +1,20 @@
 import { useState } from 'react';
 import { uploadMultiple } from '../utils/cloudinaryUpload';
-import type { MaintenancePriority } from '../types';
+import type { MaintenancePriority, MaintenanceRequest } from '../types';
 
 interface Props {
   propertyId: string;
   tenantId: string;
-  onSubmit: (data: {
-    title: string;
-    description: string;
-    priority: MaintenancePriority;
-    images: string[];
-    propertyId: string;
-    tenantId: string;
-  }) => Promise<void>;
+  initialData?: Partial<MaintenanceRequest>;
+  onSubmit: (data: any) => Promise<void>;
+  onCancel?: () => void;
 }
 
-export default function MaintenanceForm({ propertyId, tenantId, onSubmit }: Props) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState<MaintenancePriority>('medium');
+export default function MaintenanceForm({ propertyId, tenantId, initialData, onSubmit, onCancel }: Props) {
+  const [title, setTitle] = useState(initialData?.title || '');
+  const [description, setDescription] = useState(initialData?.description || '');
+  const [priority, setPriority] = useState<MaintenancePriority>(initialData?.priority || 'medium');
+  const [existingImages, setExistingImages] = useState<string[]>(initialData?.images || []);
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -29,10 +25,20 @@ export default function MaintenanceForm({ propertyId, tenantId, onSubmit }: Prop
     setLoading(true);
     setError('');
     try {
-      let imageUrls: string[] = [];
-      if (files.length) imageUrls = await uploadMultiple(files, 'maintenance');
-      await onSubmit({ title, description, priority, images: imageUrls, propertyId, tenantId });
-      setTitle(''); setDescription(''); setPriority('medium'); setFiles([]);
+      let imageUrls = [...existingImages];
+      if (files.length) {
+        const uploaded = await uploadMultiple(files, 'maintenance');
+        imageUrls = [...imageUrls, ...uploaded];
+      }
+      await onSubmit({ 
+        title, description, priority, 
+        images: imageUrls, 
+        propertyId, tenantId,
+        id: initialData?.id 
+      });
+      if (!initialData) {
+        setTitle(''); setDescription(''); setPriority('medium'); setFiles([]); setExistingImages([]);
+      }
     } catch (err: any) {
       setError(err.message || 'Submission failed.');
     } finally {
@@ -67,7 +73,23 @@ export default function MaintenanceForm({ propertyId, tenantId, onSubmit }: Prop
       </div>
 
       <div className="form-group">
-        <label className="form-label">Attach Images (optional)</label>
+        <label className="form-label">Images</label>
+        {existingImages.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+            {existingImages.map((img, i) => (
+              <div key={i} style={{ position: 'relative' }}>
+                <img src={img} alt="" style={{ width: 62, height: 48, objectFit: 'cover', borderRadius: 4 }} />
+                <button 
+                  type="button" 
+                  onClick={() => setExistingImages(prev => prev.filter((_, idx) => idx !== i))}
+                  style={styles.removeImg}
+                >
+                  &times;
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div style={styles.fileWrap}>
           <input type="file" multiple accept="image/*" onChange={e => setFiles(Array.from(e.target.files || []))} style={styles.fileInput} id="maint-images" />
           <label htmlFor="maint-images" style={styles.fileLabel}>
@@ -75,14 +97,19 @@ export default function MaintenanceForm({ propertyId, tenantId, onSubmit }: Prop
               <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
               <path d="M21 15l-5-5L5 21"/>
             </svg>
-            {files.length ? `${files.length} file(s) selected` : 'Choose images'}
+            {files.length ? `${files.length} file(s) selected` : 'Add more images'}
           </label>
         </div>
       </div>
 
-      <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%', justifyContent: 'center' }}>
-        {loading ? <><span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> Submitting...</> : 'Submit Request'}
-      </button>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button type="submit" className="btn btn-primary" disabled={loading} style={{ flex: 1, justifyContent: 'center' }}>
+          {loading ? <><span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> {initialData ? 'Updating...' : 'Submitting...'}</> : (initialData ? 'Update Request' : 'Submit Request')}
+        </button>
+        {onCancel && (
+          <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={loading}>Cancel</button>
+        )}
+      </div>
     </form>
   );
 }
@@ -119,5 +146,12 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-secondary)',
     fontSize: '0.9rem',
     background: 'var(--surface2)',
+  },
+  removeImg: {
+    position: 'absolute', top: -4, right: -4,
+    width: 18, height: 18, borderRadius: '50%',
+    background: '#ef4444', color: '#fff', border: 'none',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: '12px', cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
   },
 };

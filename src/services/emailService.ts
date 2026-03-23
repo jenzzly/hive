@@ -133,6 +133,49 @@ export const notifyNoticePeriod = (
     email: ownerEmail,
   });
 
+/** Owner initiates notice period — notifies tenant */
+export const notifyNoticeFromOwner = (
+  tenantEmail: string,
+  tenantName: string,
+  ownerName: string,
+  propertyTitle: string,
+) =>
+  send({
+    timestamp: now(),
+    to_name: tenantName,
+    message_preview: `Notice of termination for "${propertyTitle}" from owner ${ownerName} (15-day period)`,
+    sender_name: ownerName,
+    email: tenantEmail,
+  });
+
+/** Owner uploads EBM receipt — notifies tenant */
+export const notifyEBMUpload = (
+  tenantEmail: string,
+  tenantName: string,
+  propertyTitle: string,
+) =>
+  send({
+    timestamp: now(),
+    to_name: tenantName,
+    message_preview: `A new tax receipt (EBM) has been uploaded for your payment at "${propertyTitle}"`,
+    sender_name: 'Hive System',
+    email: tenantEmail,
+  });
+
+/** Owner creates a new contract — notifies tenant */
+export const notifyContractCreated = (
+  tenantEmail: string,
+  tenantName: string,
+  propertyTitle: string,
+) =>
+  send({
+    timestamp: now(),
+    to_name: tenantName,
+    message_preview: `A new rental contract has been created for you at "${propertyTitle}"`,
+    sender_name: 'Hive System',
+    email: tenantEmail,
+  });
+
 /** Quick test — call from browser console: testEmailJS('you@example.com') */
 export const testEmailJS = async (toEmail = 'test@example.com'): Promise<boolean> => {
   console.log('🧪 Testing EmailJS...');

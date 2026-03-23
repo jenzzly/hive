@@ -5,6 +5,7 @@ import { updateUserProfile } from '../services/userService';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { useToast } from '../hooks/useToast';
+import { uploadToCloudinary } from '../utils/cloudinaryUpload';
 import type { Language } from '../types';
 
 const LANGUAGES: { code: Language; label: string; native: string }[] = [
@@ -88,7 +89,42 @@ export default function SettingsPage() {
         {/* Profile card */}
         <div className="card" style={{ padding: 28, marginBottom: 20 }}>
           <div style={S.cardHeader}>
-            <div style={S.bigAvatar}>{userProfile.name.charAt(0).toUpperCase()}</div>
+            <div style={{ position: 'relative' }}>
+              {userProfile.photoURL ? (
+                <img src={userProfile.photoURL} alt={userProfile.name} style={S.bigAvatar} />
+              ) : (
+                <div style={S.bigAvatar}>{userProfile.name.charAt(0).toUpperCase()}</div>
+              )}
+              <button 
+                type="button"
+                style={S.editAvatarBtn}
+                onClick={() => document.getElementById('avatar-input')?.click()}
+                disabled={savingProfile}
+              >
+                📷
+              </button>
+              <input 
+                id="avatar-input" 
+                type="file" 
+                accept="image/*" 
+                hidden 
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  setSavingProfile(true);
+                  try {
+                    const url = await uploadToCloudinary(f, 'profiles');
+                    await updateUserProfile(userProfile.id, { photoURL: url });
+                    await refreshProfile();
+                    show(t('profileUpdated'));
+                  } catch (err: any) {
+                    show(err.message || 'Failed', 'error');
+                  } finally {
+                    setSavingProfile(false);
+                  }
+                }}
+              />
+            </div>
             <div>
               <div style={{ fontWeight: 600, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{userProfile.name}</div>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 2 }}>{userProfile.email}</div>
@@ -98,7 +134,7 @@ export default function SettingsPage() {
 
           <hr className="divider" />
 
-          <h2 style={S.sectionTitle}>Profile Information</h2>
+          <h2 style={S.sectionTitle}>{t('profileInformation')}</h2>
           <form onSubmit={handleSaveProfile} style={S.form}>
             <div className="form-group">
               <label className="form-label">{t('name')}</label>
@@ -209,6 +245,13 @@ const S: Record<string, React.CSSProperties> = {
     background: 'var(--teal)', color: '#fff',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontWeight: 700, fontSize: '1.5rem', flexShrink: 0,
+  },
+  editAvatarBtn: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 22, height: 22, borderRadius: '50%',
+    background: '#fff', border: '1.5px solid var(--border-strong)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: '0.75rem', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
   },
   sectionTitle: { fontFamily: 'var(--font-display)', fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: 20 },
   form: { display: 'flex', flexDirection: 'column', gap: 16 },

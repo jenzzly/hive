@@ -12,6 +12,7 @@ export interface User {
   location?: string;
   platformFee?: number; // Custom platform fee for owners (e.g. 5 for 5%)
   services?: string[]; // Array of services e.g. ['Legal', 'Maintenance', 'Tax']
+  photoURL?: string;
   createdAt: string;
 }
 
@@ -85,13 +86,14 @@ export interface Contract {
   contractDocumentURL?: string;
   status: ContractStatus;
   noticeDate?: string;
+  noticePeriodDays?: number; // e.g. 15 for 15-day notice
   lateFeePercent?: number; // e.g. 2 for 2%
   lateFeeGraceDays?: number; // e.g. 5 days after due date
   createdAt: string;
 }
 
 export type MaintenancePriority = 'low' | 'medium' | 'high' | 'urgent';
-export type MaintenanceStatus = 'open' | 'in_progress' | 'resolved';
+export type MaintenanceStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 
 export interface MaintenanceRequest {
   id: string;

@@ -24,11 +24,12 @@ export default function ContractViewer({ contract, propertyTitle, tenantName }: 
         </span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 20, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 16, marginBottom: 20 }}>
         <Detail label="Tenant" value={tenantName || contract.tenantId} icon="👤" />
         <Detail label="Monthly Rent" value={formatCurrency(contract.rentAmount, contract.currency || 'RWF')} highlight />
-        <Detail label="Start Date" value={start} />
-        <Detail label="End Date" value={end} />
+        <Detail label="Security Deposit" value={formatCurrency(contract.depositAmount || 0, contract.currency || 'USD')} />
+        <Detail label="Notice Period" value={`${contract.noticePeriodDays || 15} days`} />
+        <Detail label="Lease Duration" value={`${start} – ${end}`} />
       </div>
 
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>

@@ -16,7 +16,7 @@ type TranslationKey =
   | 'changePassword' | 'newPassword' | 'confirmPassword' | 'profileUpdated'
   | 'passwordUpdated' | 'english' | 'french' | 'kinyarwanda' | 'forgotPassword'
   | 'sendResetLink' | 'resetEmailSent' | 'backToLogin' | 'resetPassword' | 'prev' | 'next' | 'messages'
-  | 'propertyLocation' | 'openInMap';
+  | 'propertyLocation' | 'openInMap' | 'profileInformation';
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -53,6 +53,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     backToLogin: 'Back to Login', resetPassword: 'Reset Password',
     prev: 'Prev', next: 'Next', messages: 'Messages',
     propertyLocation: 'Property Location', openInMap: 'Open in Full Map',
+    profileInformation: 'Profile Information',
   },
   fr: {
     browse: 'Parcourir', dashboard: 'Tableau de bord', myProperty: 'Ma Propriété',
@@ -88,6 +89,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     backToLogin: 'Retour à la connexion', resetPassword: 'Réinitialiser',
     prev: 'Précédent', next: 'Suivant', messages: 'Messages',
     propertyLocation: 'Localisation du bien', openInMap: 'Ouvrir la carte',
+    profileInformation: 'Informations du profil',
   },
   rw: {
     browse: 'Reba', dashboard: 'Ikibaho', myProperty: 'Inzu Yanjye',
@@ -123,6 +125,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     backToLogin: 'Subira aho winjirira', resetPassword: 'Hindura ijambo ry\'ibanga',
     prev: 'Ibanze', next: 'Imbere', messages: 'Ubutumwa',
     propertyLocation: 'Aho inzu iherereye', openInMap: 'Fungura ikarita',
+    profileInformation: 'Amakuru y\'umwirondoro',
   },
 };
 

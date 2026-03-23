@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getAllProperties } from '../services/propertyService';
 import { getTenantContracts, updateContract } from '../services/contractService';
 import { getTenantRequests, createMaintenanceRequest } from '../services/maintenanceService';
-import { getTenantPayments, createRentPayment } from '../services/paymentService';
+import { getTenantPayments, createRentPayment, updatePayment, deletePayment } from '../services/paymentService';
 import { getTenantReimbursements, createReimbursementRequest } from '../services/reimbursementService';
 import { uploadToCloudinary, uploadMultiple } from '../utils/cloudinaryUpload';
 import { useToast } from '../hooks/useToast';
@@ -67,6 +67,9 @@ export default function TenantDashboard() {
   const [reimbFiles, setReimbFiles] = useState<File[]>([]);
   const [reimbLoading, setReimbLoading] = useState(false);
 
+  // Edit payment
+  const [editingPayment, setEditingPayment] = useState<RentPayment | null>(null);
+
   const load = async () => {
     if (!userProfile) return;
     setLoading(true);
@@ -111,14 +114,50 @@ export default function TenantDashboard() {
     }
   };
 
+  const handleEditPayment = (p: RentPayment) => {
+    if (p.status !== 'pending') {
+      show('Only pending payments can be edited.', 'error');
+      return;
+    }
+    setEditingPayment(p);
+    setPayForm({
+      month: p.month,
+      amount: String(p.amount),
+      notes: p.notes,
+      propertyId: p.propertyId,
+      currency: p.currency
+    });
+    setShowPayForm(true);
+    window.scrollTo({ top: 300, behavior: 'smooth' });
+  };
+
+  const handleDeletePayment = async (id: string) => {
+    if (!confirm('Delete this payment proof?')) return;
+    try {
+      await deletePayment(id);
+      show('Payment proof deleted.');
+      load();
+    } catch (err: any) {
+      show('Failed to delete.', 'error');
+    }
+  };
+
   const handleSubmitPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userProfile || !proofFile) { show('Please attach a proof of payment file.', 'error'); return; }
+    if (!userProfile) return;
+    if (!editingPayment && !proofFile) { 
+      show('Please attach a proof of payment file.', 'error'); 
+      return; 
+    }
     setPayLoading(true);
     try {
-      const proofUrl = await uploadToCloudinary(proofFile, 'payments');
+      let proofUrl = editingPayment ? editingPayment.proofUrl : '';
+      if (proofFile) {
+        proofUrl = await uploadToCloudinary(proofFile, 'payments');
+      }
+      
       const contract = contracts.find(c => c.propertyId === payForm.propertyId && c.status === 'active');
-      await createRentPayment({
+      const data = {
         propertyId: payForm.propertyId,
         contractId: contract?.id ?? '',
         tenantId: userProfile.id,
@@ -128,11 +167,20 @@ export default function TenantDashboard() {
         proofUrl,
         notes: payForm.notes,
         currency: payForm.currency || contract?.currency || 'USD',
-        status: 'pending',
-      });
-      show('Payment submitted! Awaiting owner verification.');
+        status: 'pending' as const,
+      };
+
+      if (editingPayment) {
+        await updatePayment(editingPayment.id, data);
+        show('Payment updated!');
+      } else {
+        await createRentPayment(data);
+        show('Payment submitted! Awaiting owner verification.');
+      }
+
       setShowPayForm(false);
-      setPayForm({ month: '', amount: '', notes: '', propertyId: '', currency: defaultCurrency || 'USD' });
+      setEditingPayment(null);
+      setPayForm({ month: '', amount: '', notes: '', propertyId: '', currency: defaultCurrency as Currency || 'USD' });
       setProofFile(null);
       await load();
     } catch (err: any) {
@@ -325,8 +373,8 @@ export default function TenantDashboard() {
           </div>
 
           {showPayForm && (
-            <div className="card" style={{ padding: 20, marginBottom: 20 }}>
-              <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 16 }}>Submit Proof of Payment</h3>
+            <div className="card" style={{ padding: 20, marginBottom: 20, border: '1.5px solid var(--terra-200)', background: 'var(--terra-50)' }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 16 }}>{editingPayment ? 'Edit Payment Proof' : 'Submit Proof of Payment'}</h3>
               <form onSubmit={handleSubmitPayment} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
                 <div className="form-group">
                   <label className="form-label">Property</label>
@@ -355,12 +403,12 @@ export default function TenantDashboard() {
                   <input className="form-input" value={payForm.notes} onChange={e => setPayForm(f => ({ ...f, notes: e.target.value }))} placeholder="Transfer ref, bank, etc..." />
                 </div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label">Proof of Payment * (screenshot, receipt, bank slip)</label>
-                  <input type="file" accept="image/*,.pdf" onChange={e => setProofFile(e.target.files?.[0] ?? null)} required />
+                  <label className="form-label">Proof of Payment {editingPayment ? '(Optional, keep existing if empty)' : '*'} (screenshot, receipt, bank slip)</label>
+                  <input type="file" accept="image/*,.pdf" onChange={e => setProofFile(e.target.files?.[0] ?? null)} required={!editingPayment} />
                 </div>
                 <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8 }}>
-                  <button className="btn btn-primary" type="submit" disabled={payLoading}>{payLoading ? 'Uploading...' : 'Submit Payment'}</button>
-                  <button className="btn btn-ghost" type="button" onClick={() => setShowPayForm(false)}>Cancel</button>
+                  <button className="btn btn-primary" type="submit" disabled={payLoading}>{payLoading ? 'Uploading...' : editingPayment ? 'Save Changes' : 'Submit Payment'}</button>
+                  <button className="btn btn-ghost" type="button" onClick={() => { setShowPayForm(false); setEditingPayment(null); setPayForm({ month: '', amount: '', notes: '', propertyId: '', currency: defaultCurrency as Currency || 'USD' }); }}>Cancel</button>
                 </div>
               </form>
             </div>
@@ -385,6 +433,12 @@ export default function TenantDashboard() {
                         <a href={pay.ebmUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: 600 }}>🏷️ EBM Receipt</a>
                       )}
                       <PayStatusBadge status={pay.status} />
+                      {pay.status === 'pending' && (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }} onClick={() => handleEditPayment(pay)} title="Edit">✏️</button>
+                          <button className="btn btn-ghost btn-danger btn-sm" style={{ padding: '4px 8px' }} onClick={() => handleDeletePayment(pay.id)} title="Delete">🗑️</button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -397,7 +451,14 @@ export default function TenantDashboard() {
           <div className="empty-state"><h3>No contracts yet</h3></div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {contracts.map(c => <ContractViewer key={c.id} contract={c} propertyTitle={properties.find(p => p.id === c.propertyId)?.title} />)}
+            {contracts.map(c => (
+              <ContractViewer 
+                key={c.id} 
+                contract={c} 
+                propertyTitle={properties.find(p => p.id === c.propertyId)?.title} 
+                tenantName={userProfile.name}
+              />
+            ))}
           </div>
         )
       ) : tab === 'maintenance' ? (

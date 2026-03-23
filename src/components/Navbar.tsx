@@ -15,8 +15,8 @@ function HexIcon() {
   );
 }
 
-function AvatarMenu({ name, role, unreadMessages, onLogout, t }: {
-  name: string; role: string; unreadMessages: number; onLogout: () => void; t: (k: any) => string;
+function AvatarMenu({ name, role, photoURL, unreadMessages, onLogout, t }: {
+  name: string; role: string; photoURL?: string; unreadMessages: number; onLogout: () => void; t: (k: any) => string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -37,14 +37,18 @@ function AvatarMenu({ name, role, unreadMessages, onLogout, t }: {
         border: '1.5px solid var(--border-strong)',
         cursor: 'pointer', transition: 'all 0.15s',
       }}>
-        <div style={{
-          width: 30, height: 30, borderRadius: '50%',
-          background: 'var(--teal)', color: '#fff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontWeight: 700, fontSize: '0.85rem', flexShrink: 0,
-        }}>
-          {name.charAt(0).toUpperCase()}
-        </div>
+        {photoURL ? (
+          <img src={photoURL} alt={name} style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover' }} />
+        ) : (
+          <div style={{
+            width: 30, height: 30, borderRadius: '50%',
+            background: 'var(--teal)', color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 700, fontSize: '0.85rem', flexShrink: 0,
+          }}>
+            {name.charAt(0).toUpperCase()}
+          </div>
+        )}
         <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 500, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
         {unreadMessages > 0 && (
           <span style={{ background: '#ef4444', color: '#fff', fontSize: '0.62rem', fontWeight: 700, padding: '1px 5px', borderRadius: 10 }}>
@@ -312,7 +316,7 @@ export default function Navbar() {
             {!isMobile && (
               userProfile ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <AvatarMenu name={userProfile.name} role={userProfile.role} unreadMessages={unreadMessages} onLogout={handleLogout} t={t} />
+                  <AvatarMenu name={userProfile.name} role={userProfile.role} photoURL={userProfile.photoURL} unreadMessages={unreadMessages} onLogout={handleLogout} t={t} />
                 </div>
               ) : (
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -339,7 +343,11 @@ export default function Navbar() {
         <div ref={drawerRef} style={{ ...S.drawer, transform: menuOpen ? 'translateX(0)' : 'translateX(100%)' }}>
           {userProfile && (
             <div style={S.drawerUser}>
-              <div style={S.drawerAvatar}>{userProfile.name.charAt(0).toUpperCase()}</div>
+              {userProfile.photoURL ? (
+                <img src={userProfile.photoURL} alt={userProfile.name} style={{ ...S.drawerAvatar, objectFit: 'cover' }} />
+              ) : (
+                <div style={S.drawerAvatar}>{userProfile.name.charAt(0).toUpperCase()}</div>
+              )}
               <div>
                 <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{userProfile.name}</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'capitalize', marginTop: 2 }}>{userProfile.role}</div>

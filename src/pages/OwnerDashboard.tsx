@@ -10,13 +10,17 @@ import { getOwnerPayments, updatePaymentStatus, updatePayment } from '../service
 import { getOwnerReimbursements, updateReimbursementStatus } from '../services/reimbursementService';
 import { getOrCreateConversation } from '../services/messageService';
 import { getAllUsers, getUserById } from '../services/userService';
-import { notifyMaintenanceResolved } from '../services/emailService';
+import { 
+  notifyMaintenanceResolved, notifyEBMUpload, 
+  notifyContractCreated, notifyNoticeFromOwner 
+} from '../services/emailService';
 import { uploadMultiple, uploadToCloudinary } from '../utils/cloudinaryUpload';
 import { useToast } from '../hooks/useToast';
 import ContractViewer from '../components/ContractViewer';
 import PropertyTypeSelector from '../components/PropertyTypeSelector';
 import PropertyMap from '../components/PropertyMap';
 import UnitManager from '../components/UnitManager';
+import MaintenanceForm from '../components/MaintenanceForm';
 import type {
   Property, Contract, MaintenanceRequest, PropertyStatus,
   BookingRequest, RentPayment, ReimbursementRequest, PropertyCategory,
@@ -79,6 +83,28 @@ function ReimbBadge({ status }: { status: string }) {
     pending: ['#f59e0b', '⏳ Pending'], approved: ['#3b82f6', '✓ Approved'], paid: ['var(--terra-600)', '💸 Paid'], rejected: ['#ef4444', '✗ Rejected'],
   };
   const [color, label] = m[status] ?? ['#94a3b8', status];
+  return <span style={{ fontSize: '0.72rem', fontWeight: 600, color, background: color + '18', padding: '3px 10px', borderRadius: 20 }}>{label}</span>;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const m: Record<string, [string, string]> = { 
+    open: ['#ef4444', 'Open'],
+    in_progress: ['#f59e0b', 'In Progress'],
+    resolved: ['var(--terra-600)', 'Resolved'],
+    closed: ['#94a3b8', 'Closed']
+  };
+  const [color, label] = m[status] ?? ['#94a3b8', status];
+  return <span style={{ fontSize: '0.72rem', fontWeight: 600, color, background: color + '18', padding: '3px 10px', borderRadius: 20 }}>{label}</span>;
+}
+
+function PriorityBadge({ priority }: { priority: string }) {
+  const m: Record<string, [string, string]> = { 
+    low: ['#10b981', 'Low'],
+    medium: ['#3b82f6', 'Medium'],
+    high: ['#f59e0b', 'High'],
+    urgent: ['#ef4444', 'Urgent']
+  };
+  const [color, label] = m[priority] ?? ['#94a3b8', priority];
   return <span style={{ fontSize: '0.72rem', fontWeight: 600, color, background: color + '18', padding: '3px 10px', borderRadius: 20 }}>{label}</span>;
 }
 
@@ -337,6 +363,7 @@ export default function OwnerDashboard() {
   const [repairCostInput, setRepairCostInput] = useState('');
   const [timelineInput, setTimelineInput] = useState('');
   const [ownerCommentInput, setOwnerCommentInput] = useState('');
+  const [editingMaintenance, setEditingMaintenance] = useState<MaintenanceRequest | null>(null);
 
   const [editingContractId, setEditingContractId] = useState<string | null>(null);
   const [contractFile, setContractFile] = useState<File | null>(null);
@@ -448,6 +475,13 @@ export default function OwnerDashboard() {
         await createContract(contractData);
         await updateProperty(contractForm.propertyId, { tenantId: contractForm.tenantId, status: 'occupied', isPublic: false });
         show('Contract created! Property set to occupied & private.');
+        
+        // Notify Tenant
+        const tenant = allTenants.find(u => u.id === contractData.tenantId);
+        const prop = properties.find(p => p.id === contractData.propertyId);
+        if (tenant?.email) {
+          notifyContractCreated(tenant.email, tenant.name, prop?.title || 'Property');
+        }
       }
 
       setShowContractForm(false);
@@ -523,11 +557,15 @@ export default function OwnerDashboard() {
 
   const handleStatusUpdate = async (req: MaintenanceRequest, status: MaintenanceRequest['status']) => {
     try {
-      await updateMaintenanceRequest(req.id, { status });
-      show('Status updated.');
+      const updateData: any = { status };
+      if (status === 'resolved') {
+        updateData.resolvedAt = new Date().toISOString();
+      }
+      await updateMaintenanceRequest(req.id, updateData);
+      show(`Status updated to ${status.replace('_', ' ')}.`);
       
-      // Notify Tenant if resolved
-      if (status === 'resolved' || status === 'in_progress') {
+      // Notify Tenant if resolved or progress
+      if (status === 'resolved' || status === 'in_progress' || status === 'closed') {
         const tenant = await getUserById(req.tenantId);
         if (tenant?.email) {
           notifyMaintenanceResolved(tenant.email, tenant.name, req.title);
@@ -537,6 +575,17 @@ export default function OwnerDashboard() {
       await load();
     } catch (err: any) {
       show('Failed to update status.', 'error');
+    }
+  };
+
+  const handleSubmitMaintenance = async (data: any) => {
+    try {
+      await updateMaintenanceRequest(data.id, data);
+      show('Request updated!');
+      setEditingMaintenance(null);
+      await load();
+    } catch (err: any) {
+      show('Failed to save request.', 'error');
     }
   };
 
@@ -564,6 +613,17 @@ export default function OwnerDashboard() {
       const url = await uploadToCloudinary(file);
       await updatePayment(paymentId, { ebmUrl: url });
       show('EBM receipt uploaded.');
+      
+      // Notify Tenant
+      const pay = payments.find(p => p.id === paymentId);
+      if (pay) {
+        const tenant = allTenants.find(u => u.id === pay.tenantId);
+        const prop = properties.find(p => p.id === pay.propertyId);
+        if (tenant?.email) {
+          notifyEBMUpload(tenant.email, tenant.name, prop?.title || 'Property');
+        }
+      }
+      
       await load();
     } catch (err: any) {
       show(err.message || 'Failed to upload EBM.', 'error');
@@ -775,14 +835,37 @@ export default function OwnerDashboard() {
                       {p.title}
                     </div>
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 10 }}>📍 {p.location}</div>
+                    {p.tenantId && (
+                      <div style={{ fontSize: '0.78rem', color: 'var(--teal-dark)', marginBottom: 10, fontWeight: 500 }}>
+                        👤 Occupied by: {allTenants.find(u => u.id === p.tenantId)?.name || 'Unknown'}
+                      </div>
+                    )}
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
                       <span className={`badge ${p.status === 'available' ? 'badge-green' : 'badge-amber'}`}>{p.status}</span>
                       <span className="badge badge-teal">{formatCurrency(p.price, (p as any).currency || 'USD')}/mo</span>
                     </div>
-                    <div style={{ display: 'flex', gap: 6 }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <button className="btn btn-ghost btn-sm" style={{ padding: '6px 10px' }} onClick={() => navigate(`/property/${p.id}`)}>👁️ View</button>
                       <button className="btn btn-ghost btn-sm" style={{ padding: '6px 10px' }} onClick={() => handleEdit(p)}>Edit</button>
                       <button className="btn btn-primary btn-sm" style={{ padding: '6px 10px' }} onClick={() => setManagingUnits(p)}>Units</button>
+                      {p.tenantId && (
+                        <button 
+                          className="btn btn-ghost btn-danger btn-sm" 
+                          style={{ padding: '6px 10px' }} 
+                          onClick={async () => {
+                            if (!confirm('Give 15-day notice to tenant? Email will be sent.')) return;
+                            const tenant = allTenants.find(u => u.id === p.tenantId);
+                            if (tenant?.email && userProfile) {
+                              notifyNoticeFromOwner(tenant.email, tenant.name, userProfile.name, p.title);
+                              show('Notice sent to tenant.');
+                            } else {
+                              show('Tenant email not found.', 'error');
+                            }
+                          }}
+                        >
+                          📢 Notice
+                        </button>
+                      )}
                       <button className="btn btn-danger btn-sm" style={{ padding: '6px 10px' }} onClick={() => handleDelete(p.id)}>Del</button>
                     </div>
                   </div>
@@ -792,78 +875,193 @@ export default function OwnerDashboard() {
             <Pagination current={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
           </>
         );
-      })() : tab === 'finance' ? (
-        <div>
-          <SearchInput value={search} onChange={setSearch} placeholder="Filter properties..." />
-          {properties.filter(p => p.title.toLowerCase().includes(search.toLowerCase())).map(p => (
-            <PropertyFinanceCard key={p.id} property={p} contracts={contracts} payments={payments} requests={requests} reimbursements={reimbursements} tenants={allTenants} onVerifyPayment={handleVerifyPayment} onReimbAction={handleReimbAction} onUpdateEBM={handleUpdateEBM} />
-          ))}
-        </div>
-      ) : tab === 'bookings' ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {bookings.map(b => (
-            <div key={b.id} className="card" style={{ padding: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div>
-                  <div style={{ fontWeight: 600 }}>{properties.find(p => p.id === b.propertyId)?.title}</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{allTenants.find(u => u.id === b.tenantId)?.name}</div>
-                </div>
-                <BookingBadge status={b.status} />
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {b.status === 'pending' && <button className="btn btn-primary btn-sm" onClick={() => handleBookingAction(b, 'approved')}>Approve</button>}
-                <button className="btn btn-ghost btn-sm" onClick={() => handleOpenChat(b)}>Message</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : tab === 'maintenance' ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {requests.map(req => (
-            <div key={req.id} className="card" style={{ padding: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <div style={{ fontWeight: 600 }}>{req.title}</div>
-                <span className={`badge badge-${req.priority === 'urgent' ? 'red' : 'gray'}`}>{req.priority}</span>
-              </div>
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 10 }}>
-                Cost: {req.repairCost ? formatCurrency(req.repairCost, defaultCurrency) : '—'} | Status: {req.status}
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                {editingRepairId === req.id ? (
-                  <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-                    <input className="form-input" style={{ width: 100 }} type="number" value={repairCostInput} onChange={e => setRepairCostInput(e.target.value)} />
-                    <button className="btn btn-primary btn-sm" onClick={() => handleSaveRepairCost(req.id)}>Save</button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setEditingRepairId(null)}>Cancel</button>
+      })() : tab === 'finance' ? (() => {
+        const filtered = properties.filter(p => 
+          p.title.toLowerCase().includes(search.toLowerCase()) || 
+          p.location.toLowerCase().includes(search.toLowerCase()) ||
+          allTenants.find(u => u.id === p.tenantId)?.name?.toLowerCase().includes(search.toLowerCase())
+        );
+        const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+        return (
+          <div>
+            <SearchInput value={search} onChange={setSearch} placeholder="Filter properties or tenants..." />
+            {paginated.length === 0 ? <div className="empty-state"><p>No properties found.</p></div> : paginated.map(p => (
+              <PropertyFinanceCard key={p.id} property={p} contracts={contracts} payments={payments} requests={requests} reimbursements={reimbursements} tenants={allTenants} onVerifyPayment={handleVerifyPayment} onReimbAction={handleReimbAction} onUpdateEBM={handleUpdateEBM} />
+            ))}
+            <Pagination current={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
+          </div>
+        );
+      })() : tab === 'bookings' ? (() => {
+        const filtered = bookings.filter(b => {
+          const prop = properties.find(p => p.id === b.propertyId);
+          const tenant = allTenants.find(u => u.id === b.tenantId);
+          return (
+            prop?.title.toLowerCase().includes(search.toLowerCase()) ||
+            tenant?.name.toLowerCase().includes(search.toLowerCase()) ||
+            b.message.toLowerCase().includes(search.toLowerCase())
+          );
+        });
+        const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <SearchInput value={search} onChange={setSearch} placeholder="Search bookings by property or tenant..." />
+            {paginated.length === 0 ? <div className="empty-state"><p>No booking requests found.</p></div> : paginated.map(b => (
+              <div key={b.id} className="card" style={{ padding: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontWeight: 600, color: 'var(--terra-900)', fontSize: '1.05rem' }}>{properties.find(p => p.id === b.propertyId)?.title || 'Unknown Property'}</div>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                      From: <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{allTenants.find(u => u.id === b.tenantId)?.name || 'Unknown'}</span>
+                    </div>
+                    {b.message && <p style={{ fontSize: '0.85rem', marginTop: 8, fontStyle: 'italic', background: 'var(--stone-50)', padding: 10, borderRadius: 6 }}>"{b.message}"</p>}
                   </div>
-                ) : (
-                  <button className="btn btn-ghost btn-sm" onClick={() => { setEditingRepairId(req.id); setRepairCostInput(String(req.repairCost || '')); }}>Edit Details</button>
-                )}
-                <button className="btn btn-primary btn-sm" onClick={() => handleStatusUpdate(req, 'resolved')}>Resolve</button>
+                  <div style={{ textAlign: 'right' }}>
+                    <BookingBadge status={b.status} />
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                      {new Date(b.createdAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+                  {b.status === 'pending' && <button className="btn btn-primary btn-sm" onClick={() => handleBookingAction(b, 'approved')}>Approve</button>}
+                  {b.status === 'pending' && <button className="btn btn-danger btn-sm" onClick={() => handleBookingAction(b, 'rejected')}>Reject</button>}
+                  <button className="btn btn-ghost btn-sm" onClick={() => handleOpenChat(b)}>Message</button>
+                  <button className="btn btn-ghost btn-danger btn-sm" onClick={() => handleDeleteBooking(b.id)}>Delete</button>
+                </div>
               </div>
+            ))}
+            <Pagination current={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
+          </div>
+        );
+      })() : tab === 'maintenance' ? (() => {
+        const filtered = requests.filter(req => {
+          const prop = properties.find(p => p.id === req.propertyId);
+          const tenant = allTenants.find(u => u.id === req.tenantId);
+          return (
+            req.title.toLowerCase().includes(search.toLowerCase()) ||
+            req.description.toLowerCase().includes(search.toLowerCase()) ||
+            prop?.title.toLowerCase().includes(search.toLowerCase()) ||
+            tenant?.name.toLowerCase().includes(search.toLowerCase())
+          );
+        });
+        const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <SearchInput value={search} onChange={setSearch} placeholder="Search maintenance by title, property or tenant..." />
+            {editingMaintenance && (
+              <div className="card" style={{ padding: 24, marginBottom: 20 }}>
+                <MaintenanceForm
+                  propertyId={editingMaintenance.propertyId}
+                  tenantId={editingMaintenance.tenantId}
+                  initialData={editingMaintenance}
+                  onSubmit={handleSubmitMaintenance}
+                  onCancel={() => setEditingMaintenance(null)}
+                />
+              </div>
+            )}
+            {paginated.length === 0 ? <div className="empty-state"><p>No maintenance requests found.</p></div> : paginated.map(req => {
+              const prop = properties.find(p => p.id === req.propertyId);
+              return (
+                <div key={req.id} className="card" style={{ padding: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <div>
+                      <div style={{ fontWeight: 600, color: 'var(--terra-900)', fontSize: '1.05rem' }}>{req.title}</div>
+                      {prop && <div style={{ fontSize: '0.82rem', color: 'var(--teal)', fontWeight: 500 }}>📍 {prop.title}</div>}
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>Requested by: {allTenants.find(u => u.id === req.tenantId)?.name || 'Unknown'}</div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <PriorityBadge priority={req.priority} />
+                        <StatusBadge status={req.status} />
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{new Date(req.createdAt).toLocaleDateString()}</div>
+                    </div>
+                  </div>
+
+                  <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '14px 0' }}>{req.description}</p>
+
+                  {req.images && req.images.length > 0 && (
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
+                      {req.images.map((img, i) => (
+                        <img key={i} src={img} alt="" style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
+                      ))}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 14, justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {(req.status === 'open' || req.status === 'resolved') && (
+                        <button className="btn btn-ghost btn-sm" onClick={() => handleStatusUpdate(req, req.status === 'resolved' ? 'open' : 'in_progress')}>
+                          {req.status === 'resolved' ? 'Re-open' : 'Start Repair'}
+                        </button>
+                      )}
+                      {req.status !== 'resolved' && req.status !== 'closed' && (
+                        <button className="btn btn-primary btn-sm" onClick={() => handleStatusUpdate(req, 'resolved')}>Resolve</button>
+                      )}
+                      {req.status === 'resolved' && (
+                        <button className="btn btn-danger btn-sm" onClick={() => handleStatusUpdate(req, 'closed')}>Close Ticket</button>
+                      )}
+                      <button className="btn btn-ghost btn-sm" onClick={() => {
+                        setEditingMaintenance(req);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}>
+                        Edit Details
+                      </button>
+                      {editingRepairId === req.id ? (
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <input className="form-input" style={{ width: 100 }} type="number" placeholder="Cost" value={repairCostInput} onChange={e => setRepairCostInput(e.target.value)} />
+                          <button className="btn btn-primary btn-sm" onClick={() => handleSaveRepairCost(req.id)}>Save</button>
+                          <button className="btn btn-ghost btn-sm" onClick={() => setEditingRepairId(null)}>×</button>
+                        </div>
+                      ) : (
+                        <button className="btn btn-ghost btn-sm" onClick={() => { setEditingRepairId(req.id); setRepairCostInput(String(req.repairCost || '')); }}>Set Cost</button>
+                      )}
+                    </div>
+                    {req.repairCost && <div style={{ fontWeight: 600, color: 'var(--teal-dark)', fontSize: '0.9rem' }}>Cost: {formatCurrency(req.repairCost, defaultCurrency)}</div>}
+                  </div>
+                </div>
+              );
+            })}
+            <Pagination current={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
+          </div>
+        );
+      })() : (() => {
+        const filtered = contracts.filter(c => {
+          const prop = properties.find(p => p.id === c.propertyId);
+          const tenant = allTenants.find(u => u.id === c.tenantId);
+          return (
+            prop?.title.toLowerCase().includes(search.toLowerCase()) ||
+            tenant?.name.toLowerCase().includes(search.toLowerCase())
+          );
+        });
+        const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <SearchInput value={search} onChange={setSearch} placeholder="Search contracts..." />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
+              {paginated.length === 0 ? <div className="empty-state"><p>No contracts found.</p></div> : paginated.map(c => {
+                const prop = properties.find(p => p.id === c.propertyId);
+                return (
+                  <div key={c.id} className="card" style={{ padding: 20 }}>
+                    <div style={{ fontWeight: 600, fontSize: '1.1rem' }}>{prop?.title}</div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '8px 0' }}>Tenant: {allTenants.find(u => u.id === c.tenantId)?.name}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <div style={{ fontSize: '0.85rem' }}>Rent: <strong>{formatCurrency(c.rentAmount, c.currency)}</strong></div>
+                      <div style={{ fontSize: '0.85rem' }}>Fee: <strong>{c.lateFeePercent}%</strong></div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => handleEditContract(c)}>Edit</button>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleDeleteContract(c.id)}>Delete</button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          ))}
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
-          {contracts.map(c => {
-            const prop = properties.find(p => p.id === c.propertyId);
-            return (
-              <div key={c.id} className="card" style={{ padding: 20 }}>
-                <div style={{ fontWeight: 600, fontSize: '1.1rem' }}>{prop?.title}</div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '8px 0' }}>Tenant: {allTenants.find(u => u.id === c.tenantId)?.name}</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div style={{ fontSize: '0.85rem' }}>Rent: <strong>{formatCurrency(c.rentAmount, c.currency)}</strong></div>
-                  <div style={{ fontSize: '0.85rem' }}>Fee: <strong>{c.lateFeePercent}%</strong></div>
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                  <button className="btn btn-ghost btn-sm" onClick={() => handleEditContract(c)}>Edit</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => handleDeleteContract(c.id)}>Delete</button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+            <Pagination current={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
+          </div>
+        );
+      })()
+      }
       {managingUnits && <UnitManager property={managingUnits} onClose={() => setManagingUnits(null)} />} 
     </div>
   );

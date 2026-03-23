@@ -66,8 +66,8 @@ service cloud.firestore {
     match /rentPayments/{payId} {
       allow read: if isPriv() || (authed() && (resource.data.tenantId == uid() || resource.data.ownerId == uid()));
       allow create: if isPriv() || (authed() && (isTenant() && request.resource.data.tenantId == uid()) || (isOwner() && request.resource.data.ownerId == uid()));
-      allow update: if isPriv() || (isOwner() && resource.data.ownerId == uid());
-      allow delete: if isPriv();
+      allow update: if isPriv() || (isOwner() && resource.data.ownerId == uid()) || (isTenant() && resource.data.tenantId == uid() && resource.data.status == 'pending');
+      allow delete: if isPriv() || (isTenant() && resource.data.tenantId == uid() && resource.data.status == 'pending');
     }
 
     // ── REIMBURSEMENT REQUESTS ──
@@ -100,7 +100,7 @@ service cloud.firestore {
     match /messages/{msgId} {
       allow read: if authed();
       allow create: if authed();
-      allow update, delete: if isPriv();
+      allow update, delete: if isPriv() || (authed() && resource.data.senderId == uid());
     }
   }
 }

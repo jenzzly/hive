@@ -15,36 +15,61 @@ export default function MaintenancePage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
 
+  const [editingRequest, setEditingRequest] = useState<MaintenanceRequest | null>(null);
+
   const load = async () => {
     if (!userProfile) return;
-    if (userProfile.role === 'tenant') {
-      const [reqs, prop] = await Promise.all([
-        getTenantRequests(userProfile.id),
-        getTenantProperty(userProfile.id),
-      ]);
-      setRequests(reqs);
-      setProperty(prop);
-    } else {
-      const props = await getOwnerProperties(userProfile.id);
-      setProperties(props);
-      const reqs = await getOwnerRequests(props.map(p => p.id));
-      setRequests(reqs);
+    try {
+      if (userProfile.role === 'tenant') {
+        const [reqs, prop] = await Promise.all([
+          getTenantRequests(userProfile.id),
+          getTenantProperty(userProfile.id),
+        ]);
+        setRequests(reqs);
+        setProperty(prop);
+      } else {
+        const props = await getOwnerProperties(userProfile.id);
+        setProperties(props);
+        const reqs = await getOwnerRequests(props.map(p => p.id));
+        setRequests(reqs);
+      }
+    } catch (err: any) {
+      show('Failed to load maintenance data.', 'error');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => { load(); }, [userProfile]);
 
-  const handleSubmit = async (data: Parameters<typeof createMaintenanceRequest>[0]) => {
-    await createMaintenanceRequest(data);
-    show('Request submitted!');
-    await load();
+  const handleSubmit = async (data: any) => {
+    try {
+      if (data.id) {
+        await updateMaintenanceRequest(data.id, data);
+        show('Request updated!');
+        setEditingRequest(null);
+      } else {
+        await createMaintenanceRequest(data);
+        show('Request submitted!');
+      }
+      await load();
+    } catch (err: any) {
+      show(err.message || 'Failed to save request.', 'error');
+    }
   };
 
   const handleStatus = async (req: MaintenanceRequest, status: MaintenanceRequest['status']) => {
-    await updateMaintenanceRequest(req.id, { status });
-    show(`Marked as ${status.replace('_', ' ')}`);
-    await load();
+    try {
+      const updateData: any = { status };
+      if (status === 'resolved') {
+        updateData.resolvedAt = new Date().toISOString();
+      }
+      await updateMaintenanceRequest(req.id, updateData);
+      show(`Marked as ${status.replace('_', ' ')}`);
+      await load();
+    } catch (err: any) {
+      show('Failed to update status.', 'error');
+    }
   };
 
   const filtered = filter === 'all' ? requests : requests.filter(r => r.status === filter);
@@ -60,16 +85,20 @@ export default function MaintenancePage() {
       </div>
 
       <div style={styles.layout}>
-        {/* Form for tenants */}
-        {userProfile.role === 'tenant' && (
-          <div className="card" style={{ padding: 24 }}>
-            <MaintenanceForm
-              propertyId={property?.id || ''}
-              tenantId={userProfile.id}
-              onSubmit={handleSubmit}
-            />
-          </div>
-        )}
+        {/* Form area */}
+        <div style={{ width: 340, flexShrink: 0 }}>
+          {userProfile.role === 'tenant' && (
+            <div className="card" style={{ padding: 24, position: 'sticky', top: 100 }}>
+              <MaintenanceForm
+                propertyId={property?.id || ''}
+                tenantId={userProfile.id}
+                initialData={editingRequest || undefined}
+                onSubmit={handleSubmit}
+                onCancel={editingRequest ? () => setEditingRequest(null) : undefined}
+              />
+            </div>
+          )}
+        </div>
 
         {/* Requests list */}
         <div style={{ flex: 1 }}>
@@ -79,7 +108,7 @@ export default function MaintenancePage() {
               <span style={styles.count}>{filtered.length}</span>
             </h2>
             <div style={styles.filters}>
-              {['all','open','in_progress','resolved'].map(f => (
+              {['all','open','in_progress','resolved', 'closed'].map(f => (
                 <button
                   key={f}
                   style={{ ...styles.filterBtn, ...(filter === f ? styles.filterActive : {}) }}
@@ -99,12 +128,14 @@ export default function MaintenancePage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {filtered.map(r => {
                 const prop = properties.find(p => p.id === r.propertyId);
+                const canEdit = userProfile.role === 'tenant' && r.status !== 'closed';
+                
                 return (
                   <div key={r.id} className="card" style={{ padding: 20 }}>
                     <div style={styles.reqTop}>
                       <div style={{ flex: 1 }}>
                         <div style={styles.reqTitle}>{r.title}</div>
-                        {prop && <div style={styles.reqProp}>{prop.title}</div>}
+                        {(prop || property) && <div style={styles.reqProp}>{(prop || property)?.title}</div>}
                         <div style={styles.reqDate}>{new Date(r.createdAt).toLocaleDateString()}</div>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
@@ -118,29 +149,52 @@ export default function MaintenancePage() {
                     {r.images?.length > 0 && (
                       <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                         {r.images.map((img, i) => (
-                          <img key={i} src={img} alt="" style={{ width: 72, height: 52, objectFit: 'cover', borderRadius: 6 }} />
+                          <img key={i} src={img} alt="" style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
                         ))}
                       </div>
                     )}
 
-                    {userProfile.role !== 'tenant' && r.status !== 'resolved' && (
-                      <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-                        {r.status === 'open' && (
-                          <button className="btn btn-secondary btn-sm" onClick={() => handleStatus(r, 'in_progress')}>
-                            Mark In Progress
+                    <div style={{ display: 'flex', gap: 8, marginTop: 18, justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {/* Owner Actions */}
+                        {userProfile.role !== 'tenant' && (
+                          <>
+                            {r.status === 'open' && (
+                              <button className="btn btn-ghost btn-sm" onClick={() => handleStatus(r, 'in_progress')}>Mark In Progress</button>
+                            )}
+                            {r.status !== 'resolved' ? (
+                              <button className="btn btn-primary btn-sm" onClick={() => handleStatus(r, 'resolved')}>Mark Resolved</button>
+                            ) : (
+                              <button className="btn btn-ghost btn-sm" onClick={() => handleStatus(r, 'open')}>Re-open</button>
+                            )}
+                            {r.status === 'resolved' && (
+                              <button className="btn btn-danger btn-sm" onClick={() => handleStatus(r, 'closed')}>Close Ticket</button>
+                            )}
+                          </>
+                        )}
+
+                        {/* Tenant Actions */}
+                        {canEdit && (
+                          <button className="btn btn-ghost btn-sm" onClick={() => {
+                            setEditingRequest(r);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}>
+                            Edit Details
                           </button>
                         )}
-                        <button className="btn btn-primary btn-sm" onClick={() => handleStatus(r, 'resolved')}>
-                          Mark Resolved
-                        </button>
                       </div>
-                    )}
 
-                    {r.status === 'resolved' && r.resolvedAt && (
-                      <div style={styles.resolvedNote}>
-                        ✓ Resolved on {new Date(r.resolvedAt).toLocaleDateString()}
-                      </div>
-                    )}
+                      {r.status === 'resolved' && r.resolvedAt && (
+                        <div style={{ fontSize: '0.8rem', color: 'var(--teal-dark)', fontWeight: 500 }}>
+                          ✓ Resolved {new Date(r.resolvedAt).toLocaleDateString()}
+                        </div>
+                      )}
+                      {r.status === 'closed' && (
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                          🔒 Ticket Closed
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -158,7 +212,12 @@ function PriorityBadge({ priority }: { priority: string }) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = { open: 'badge-red', in_progress: 'badge-amber', resolved: 'badge-green' };
+  const map: Record<string, string> = { 
+    open: 'badge-red', 
+    in_progress: 'badge-amber', 
+    resolved: 'badge-green',
+    closed: 'badge-gray' 
+  };
   return <span className={`badge ${map[status] || 'badge-gray'}`}>{status.replace('_', ' ')}</span>;
 }
 
