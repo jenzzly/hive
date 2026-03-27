@@ -21,6 +21,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import AccountReset from './pages/AccountReset';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
+import TenantAnalyticsPage from './pages/TenantAnalyticsPage';
 
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
@@ -109,6 +110,12 @@ function AppRoutes() {
           <Route path="/my-rent" element={
             <ProtectedRoute roles={['tenant']}>
               <TenantDashboard />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/tenant-analytics" element={
+            <ProtectedRoute roles={['tenant']}>
+              <TenantAnalyticsPage />
             </ProtectedRoute>
           } />
 

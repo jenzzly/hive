@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getAllProperties } from '../services/propertyService';
 import { getTenantContracts, updateContract } from '../services/contractService';
-import { getTenantRequests, createMaintenanceRequest } from '../services/maintenanceService';
+import { getTenantRequests, createMaintenanceRequest, updateMaintenanceRequest } from '../services/maintenanceService';
 import { getTenantPayments, createRentPayment, updatePayment, deletePayment } from '../services/paymentService';
 import { getTenantReimbursements, createReimbursementRequest } from '../services/reimbursementService';
 import { uploadToCloudinary, uploadMultiple } from '../utils/cloudinaryUpload';
@@ -70,6 +70,10 @@ export default function TenantDashboard() {
   // Edit payment
   const [editingPayment, setEditingPayment] = useState<RentPayment | null>(null);
 
+  // Edit maintenance
+  const [showMaintForm, setShowMaintForm] = useState(false);
+  const [editingMaintenance, setEditingMaintenance] = useState<MaintenanceRequest | null>(null);
+
   const load = async () => {
     if (!userProfile) return;
     setLoading(true);
@@ -96,29 +100,30 @@ export default function TenantDashboard() {
 
   const handleSubmitRequest = async (data: Parameters<typeof createMaintenanceRequest>[0]) => {
     try {
-      await createMaintenanceRequest(data);
-      const updated = await getTenantRequests(userProfile!.id);
-      setRequests(updated);
-      show('Request submitted!');
-      
-      // Notify Owner
-      const prop = properties.find(p => p.id === data.propertyId);
-      if (prop) {
-        const owner = await getUserById(prop.ownerId);
-        if (owner?.email) {
-          notifyMaintenanceCreated(owner.email, owner.name, data.title, prop.title);
+      if ((data as any).id) {
+        await updateMaintenanceRequest((data as any).id, data);
+        show('Request updated!');
+      } else {
+        await createMaintenanceRequest(data);
+        show('Request submitted!');
+        const prop = properties.find(p => p.id === data.propertyId);
+        if (prop) {
+          const owner = await getUserById(prop.ownerId);
+          if (owner?.email) {
+            notifyMaintenanceCreated(owner.email, owner.name, data.title, prop.title);
+          }
         }
       }
+      setShowMaintForm(false);
+      setEditingMaintenance(null);
+      const updated = await getTenantRequests(userProfile!.id);
+      setRequests(updated);
     } catch (err: any) {
       show(err.message || 'Failed to submit request.', 'error');
     }
   };
 
   const handleEditPayment = (p: RentPayment) => {
-    if (p.status !== 'pending') {
-      show('Only pending payments can be edited.', 'error');
-      return;
-    }
     setEditingPayment(p);
     setPayForm({
       month: p.month,
@@ -433,12 +438,10 @@ export default function TenantDashboard() {
                         <a href={pay.ebmUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: 600 }}>🏷️ EBM Receipt</a>
                       )}
                       <PayStatusBadge status={pay.status} />
-                      {pay.status === 'pending' && (
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }} onClick={() => handleEditPayment(pay)} title="Edit">✏️</button>
-                          <button className="btn btn-ghost btn-danger btn-sm" style={{ padding: '4px 8px' }} onClick={() => handleDeletePayment(pay.id)} title="Delete">🗑️</button>
-                        </div>
-                      )}
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }} onClick={() => handleEditPayment(pay)} title="Edit">✏️</button>
+                        <button className="btn btn-ghost btn-danger btn-sm" style={{ padding: '4px 8px' }} onClick={() => handleDeletePayment(pay.id)} title="Delete">🗑️</button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -463,23 +466,36 @@ export default function TenantDashboard() {
         )
       ) : tab === 'maintenance' ? (
         <div>
-          {/* Property selector for maintenance */}
-          {properties.length > 1 && (
-            <div className="form-group" style={{ marginBottom: 16, maxWidth: 320 }}>
-              <label className="form-label">Submit request for</label>
-              <select className="form-input" value={selectedPropertyId} onChange={e => setSelectedPropertyId(e.target.value)}>
-                {properties.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-              </select>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem' }}>Maintenance</h2>
+            <button className="btn btn-primary btn-sm" onClick={() => { setEditingMaintenance(null); setShowMaintForm(s => !s); }}>
+              + New Request
+            </button>
+          </div>
+
+          {showMaintForm && (
+            <div className="card" style={{ padding: 20, marginBottom: 24 }}>
+              {properties.length > 1 && !editingMaintenance && (
+                <div className="form-group" style={{ marginBottom: 16, maxWidth: 320 }}>
+                  <label className="form-label">Submit request for</label>
+                  <select className="form-input" value={selectedPropertyId} onChange={e => setSelectedPropertyId(e.target.value)}>
+                    {properties.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                  </select>
+                </div>
+              )}
+              {selectedPropertyId && (
+                <MaintenanceForm
+                  propertyId={editingMaintenance?.propertyId || selectedPropertyId}
+                  tenantId={userProfile.id}
+                  initialData={editingMaintenance || undefined}
+                  onSubmit={handleSubmitRequest}
+                  onCancel={() => { setShowMaintForm(false); setEditingMaintenance(null); }}
+                />
+              )}
             </div>
           )}
-          {selectedPropertyId && (
-            <MaintenanceForm
-              propertyId={selectedPropertyId}
-              tenantId={userProfile.id}
-              onSubmit={handleSubmitRequest}
-            />
-          )}
-          <div style={{ marginTop: 24 }}>
+
+          <div>
             <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', marginBottom: 14 }}>Your Requests</h3>
             {requests.length === 0 ? (
               <div style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>No requests submitted yet.</div>
@@ -498,6 +514,15 @@ export default function TenantDashboard() {
                         <span className={`badge badge-${req.priority === 'urgent' ? 'red' : req.priority === 'high' ? 'amber' : 'gray'}`}>{req.priority}</span>
                       </div>
                     </div>
+                    {req.status !== 'closed' && req.status !== 'resolved' && (
+                      <div style={{ marginTop: 8 }}>
+                        <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', fontSize: '0.75rem' }} onClick={() => {
+                          setEditingMaintenance(req);
+                          setShowMaintForm(true);
+                          window.scrollTo({ top: 300, behavior: 'smooth' });
+                        }}>✏️ Edit Request</button>
+                      </div>
+                    )}
                     {req.timeline && (
                       <div style={{ marginTop: 8, fontSize: '0.78rem', color: 'var(--terra-600)', fontWeight: 600 }}>🛠️ Timeline: {req.timeline}</div>
                     )}

@@ -80,148 +80,160 @@ export default function SettingsPage() {
   return (
     <div className="container page">
       <ToastContainer />
-      <div style={{ maxWidth: 640 }}>
-        <div className="page-header">
-          <h1 className="page-title">{t('userSettings')}</h1>
-          <p className="page-subtitle">Manage your profile, language and password.</p>
+      <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+        <div className="page-header" style={{ marginBottom: 32, textAlign: 'center' }}>
+          <h1 className="page-title" style={{ fontSize: '2rem' }}>{t('userSettings')}</h1>
+          <p className="page-subtitle" style={{ fontSize: '1.05rem' }}>Manage your profile, preferences, and security.</p>
         </div>
 
-        {/* Profile card */}
-        <div className="card" style={{ padding: 28, marginBottom: 20 }}>
-          <div style={S.cardHeader}>
-            <div style={{ position: 'relative' }}>
-              {userProfile.photoURL ? (
-                <img src={userProfile.photoURL} alt={userProfile.name} style={S.bigAvatar} />
-              ) : (
-                <div style={S.bigAvatar}>{userProfile.name.charAt(0).toUpperCase()}</div>
-              )}
-              <button 
-                type="button"
-                style={S.editAvatarBtn}
-                onClick={() => document.getElementById('avatar-input')?.click()}
-                disabled={savingProfile}
-              >
-                📷
-              </button>
-              <input 
-                id="avatar-input" 
-                type="file" 
-                accept="image/*" 
-                hidden 
-                onChange={async (e) => {
-                  const f = e.target.files?.[0];
-                  if (!f) return;
-                  setSavingProfile(true);
-                  try {
-                    const url = await uploadToCloudinary(f, 'profiles');
-                    await updateUserProfile(userProfile.id, { photoURL: url });
-                    await refreshProfile();
-                    show(t('profileUpdated'));
-                  } catch (err: any) {
-                    show(err.message || 'Failed', 'error');
-                  } finally {
-                    setSavingProfile(false);
-                  }
-                }}
-              />
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) minmax(300px, 1.5fr)', gap: 24, alignItems: 'start' }}>
+          
+          {/* LEFT COLUMN: Profile & Account Info */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            
+            {/* Profile Overview Card */}
+            <div className="card" style={{ padding: 32, textAlign: 'center', background: 'linear-gradient(145deg, #ffffff 0%, var(--surface) 100%)' }}>
+              <div style={{ position: 'relative', display: 'inline-block', marginBottom: 16 }}>
+                {userProfile.photoURL ? (
+                  <img src={userProfile.photoURL} alt={userProfile.name} style={{ width: 90, height: 90, borderRadius: '50%', objectFit: 'cover', border: '3px solid #fff', boxShadow: 'var(--shadow)' }} />
+                ) : (
+                  <div style={{ width: 90, height: 90, borderRadius: '50%', background: 'var(--teal)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '2.5rem', border: '3px solid #fff', boxShadow: 'var(--shadow)' }}>
+                    {userProfile.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <button 
+                  type="button"
+                  style={S.editAvatarBtn}
+                  onClick={() => document.getElementById('avatar-input')?.click()}
+                  disabled={savingProfile}
+                  title="Change photo"
+                >
+                  📷
+                </button>
+                <input 
+                  id="avatar-input" 
+                  type="file" 
+                  accept="image/*" 
+                  hidden 
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    setSavingProfile(true);
+                    try {
+                      const url = await uploadToCloudinary(f, 'profiles');
+                      await updateUserProfile(userProfile.id, { photoURL: url });
+                      await refreshProfile();
+                      show(t('profileUpdated'));
+                    } catch (err: any) {
+                      show(err.message || 'Failed', 'error');
+                    } finally {
+                      setSavingProfile(false);
+                    }
+                  }}
+                />
+              </div>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', color: 'var(--text-primary)', marginBottom: 4 }}>{userProfile.name}</h2>
+              <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{userProfile.email}</div>
+              <div style={{ marginTop: 12 }}><span className="badge badge-green" style={{ textTransform: 'uppercase', letterSpacing: '0.5px', padding: '4px 12px' }}>{userProfile.role}</span></div>
             </div>
-            <div>
-              <div style={{ fontWeight: 600, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{userProfile.name}</div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 2 }}>{userProfile.email}</div>
-              <span className="badge badge-green" style={{ marginTop: 6, textTransform: 'capitalize' }}>{userProfile.role}</span>
+
+            {/* Account Info Card */}
+            <div className="card" style={{ padding: 28 }}>
+              <h2 style={{ ...S.sectionTitle, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>🛡️</span> Account Information
+              </h2>
+              <div style={S.infoGrid}>
+                <InfoRow label="User ID" value={userProfile.id} mono />
+                <InfoRow label="Member Since" value={new Date(userProfile.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} />
+                <InfoRow label="Platform Role" value={userProfile.role} />
+              </div>
             </div>
+
           </div>
 
-          <hr className="divider" />
+          {/* RIGHT COLUMN: Forms */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            
+            {/* Edit Profile Card */}
+            <div className="card" style={{ padding: 32 }}>
+              <h2 style={{ ...S.sectionTitle, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>✏️</span> {t('profileInformation')}
+              </h2>
+              <form onSubmit={handleSaveProfile} style={S.form}>
+                <div className="grid-2" style={{ gap: 16 }}>
+                  <div className="form-group">
+                    <label className="form-label">{t('name')}</label>
+                    <input className="form-input" style={{ background: 'var(--surface2)' }} value={name} onChange={e => setName(e.target.value)} required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">{t('location')}</label>
+                    <input className="form-input" style={{ background: 'var(--surface2)' }} value={locationVal} onChange={e => setLocationVal(e.target.value)} placeholder="e.g. Kigali, Rwanda" />
+                  </div>
+                </div>
 
-          <h2 style={S.sectionTitle}>{t('profileInformation')}</h2>
-          <form onSubmit={handleSaveProfile} style={S.form}>
-            <div className="form-group">
-              <label className="form-label">{t('name')}</label>
-              <input className="form-input" value={name} onChange={e => setName(e.target.value)} required />
-            </div>
+                <div className="form-group" style={{ marginTop: 8 }}>
+                  <label className="form-label">{t('language')}</label>
+                  <div style={S.langRow}>
+                    {LANGUAGES.map(l => (
+                      <button key={l.code} type="button" style={{ ...S.langBtn, ...(selectedLang === l.code ? S.langBtnActive : {}) }} onClick={() => setSelectedLang(l.code)}>
+                        <span style={S.langFlag}>{l.code === 'en' ? '🇬🇧' : l.code === 'fr' ? '🇫🇷' : '🇷🇼'}</span>
+                        <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{l.native}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            <div className="form-group">
-              <label className="form-label">{t('location')}</label>
-              <input
-                className="form-input"
-                value={locationVal}
-                onChange={e => setLocationVal(e.target.value)}
-                placeholder="e.g. Kigali, Rwanda"
-              />
-            </div>
+                <div className="form-group" style={{ marginTop: 8 }}>
+                  <label className="form-label">Default Currency</label>
+                  <div style={S.langRow}>
+                    {['USD', 'RWF'].map(c => (
+                      <button key={c} type="button" style={{ ...S.langBtn, ...(selectedCurrency === c ? S.langBtnActive : {}) }} onClick={() => setSelectedCurrency(c)}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                          <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{c}</span>
+                          <span style={{ fontSize: '0.75rem', opacity: selectedCurrency === c ? 0.9 : 0.6 }}>{c === 'USD' ? 'US Dollar' : 'Rwandan Franc'}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            <div className="form-group">
-              <label className="form-label">{t('language')}</label>
-              <div style={S.langRow}>
-                {LANGUAGES.map(l => (
-                  <button
-                    key={l.code}
-                    type="button"
-                    style={{ ...S.langBtn, ...(selectedLang === l.code ? S.langBtnActive : {}) }}
-                    onClick={() => setSelectedLang(l.code)}
-                  >
-                    <span style={S.langFlag}>{l.code === 'en' ? '🇬🇧' : l.code === 'fr' ? '🇫🇷' : '🇷🇼'}</span>
-                    <span style={{ fontWeight: 500, fontSize: '0.88rem' }}>{l.native}</span>
+                <div style={{ marginTop: 12, paddingTop: 20, borderTop: '1px dashed var(--border)' }}>
+                  <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px 20px', fontSize: '1rem' }} disabled={savingProfile}>
+                    {savingProfile ? 'Saving...' : t('saveChanges')}
                   </button>
-                ))}
-              </div>
+                </div>
+              </form>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Default Currency</label>
-              <div style={S.langRow}>
-                {['USD', 'RWF'].map(c => (
-                  <button
-                    key={c}
-                    type="button"
-                    style={{ ...S.langBtn, ...(selectedCurrency === c ? S.langBtnActive : {}) }}
-                    onClick={() => setSelectedCurrency(c)}
-                  >
-                    <span style={{ fontWeight: 600, fontSize: '0.92rem' }}>{c}</span>
-                    <span style={{ fontSize: '0.82rem', opacity: 0.7 }}>{c === 'USD' ? 'US Dollar' : 'Rwandan Franc'}</span>
+            {/* Security / Password Card */}
+            <div className="card" style={{ padding: 32 }}>
+              <h2 style={{ ...S.sectionTitle, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>🔒</span> {t('changePassword')}
+              </h2>
+              <form onSubmit={handleChangePassword} style={S.form}>
+                {pwdError && <div style={S.error}>{pwdError}</div>}
+                <div className="form-group">
+                  <label className="form-label">Current Password</label>
+                  <input className="form-input" style={{ background: 'var(--surface2)' }} type="password" value={currentPwd} onChange={e => setCurrentPwd(e.target.value)} required placeholder="••••••••" />
+                </div>
+                <div className="grid-2" style={{ gap: 16 }}>
+                  <div className="form-group">
+                    <label className="form-label">{t('newPassword')}</label>
+                    <input className="form-input" style={{ background: 'var(--surface2)' }} type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)} required placeholder="Min 6 characters" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">{t('confirmPassword')}</label>
+                    <input className="form-input" style={{ background: 'var(--surface2)' }} type="password" value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} required placeholder="Repeat password" />
+                  </div>
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <button type="submit" className="btn btn-secondary" style={{ width: '100%', padding: '12px 20px', fontSize: '1rem' }} disabled={savingPwd}>
+                    {savingPwd ? 'Updating...' : t('changePassword')}
                   </button>
-                ))}
-              </div>
+                </div>
+              </form>
             </div>
 
-            <button type="submit" className="btn btn-primary" disabled={savingProfile}>
-              {savingProfile ? 'Saving...' : t('saveChanges')}
-            </button>
-          </form>
-        </div>
-
-        {/* Password card */}
-        <div className="card" style={{ padding: 28, marginBottom: 20 }}>
-          <h2 style={S.sectionTitle}>{t('changePassword')}</h2>
-          <form onSubmit={handleChangePassword} style={S.form}>
-            {pwdError && <div style={S.error}>{pwdError}</div>}
-            <div className="form-group">
-              <label className="form-label">Current Password</label>
-              <input className="form-input" type="password" value={currentPwd} onChange={e => setCurrentPwd(e.target.value)} required placeholder="••••••••" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">{t('newPassword')}</label>
-              <input className="form-input" type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)} required placeholder="Min 6 characters" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">{t('confirmPassword')}</label>
-              <input className="form-input" type="password" value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} required placeholder="Repeat new password" />
-            </div>
-            <button type="submit" className="btn btn-primary" disabled={savingPwd}>
-              {savingPwd ? 'Updating...' : t('changePassword')}
-            </button>
-          </form>
-        </div>
-
-        {/* Account info */}
-        <div className="card" style={{ padding: 24 }}>
-          <h2 style={S.sectionTitle}>Account Info</h2>
-          <div style={S.infoGrid}>
-            <InfoRow label="User ID" value={userProfile.id} mono />
-            <InfoRow label="Email" value={userProfile.email} />
-            <InfoRow label="Role" value={userProfile.role} />
-            <InfoRow label="Member since" value={new Date(userProfile.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} />
           </div>
         </div>
       </div>
@@ -231,43 +243,38 @@ export default function SettingsPage() {
 
 function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div style={{ padding: '10px 0', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-      <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', flexShrink: 0 }}>{label}</span>
-      <span style={{ fontSize: '0.88rem', color: 'var(--text-primary)', fontFamily: mono ? 'monospace' : 'inherit', wordBreak: 'break-all', textAlign: 'right', textTransform: 'capitalize' }}>{value}</span>
+    <div style={{ padding: '14px 0', borderBottom: '1px solid var(--surface2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: 600, flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 500, fontFamily: mono ? 'monospace' : 'inherit', wordBreak: 'break-all', textAlign: 'right', textTransform: mono ? 'none' : 'capitalize' }}>{value}</span>
     </div>
   );
 }
 
 const S: Record<string, React.CSSProperties> = {
-  cardHeader: { display: 'flex', alignItems: 'center', gap: 16, marginBottom: 4 },
-  bigAvatar: {
-    width: 60, height: 60, borderRadius: '50%',
-    background: 'var(--teal)', color: '#fff',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontWeight: 700, fontSize: '1.5rem', flexShrink: 0,
-  },
   editAvatarBtn: {
-    position: 'absolute', bottom: 0, right: 0,
-    width: 22, height: 22, borderRadius: '50%',
-    background: '#fff', border: '1.5px solid var(--border-strong)',
+    position: 'absolute', bottom: -2, right: -2,
+    width: 30, height: 30, borderRadius: '50%',
+    background: '#fff', border: 'none',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: '0.75rem', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    fontSize: '0.9rem', cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.15)',
+    transition: 'transform 0.2s',
   },
-  sectionTitle: { fontFamily: 'var(--font-display)', fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: 20 },
+  sectionTitle: { fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: 20 },
   form: { display: 'flex', flexDirection: 'column', gap: 16 },
-  langRow: { display: 'flex', gap: 10, flexWrap: 'wrap' },
+  langRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 },
   langBtn: {
-    flex: 1, minWidth: 120, padding: '12px 14px',
-    border: '1.5px solid var(--border-strong)', borderRadius: 10,
+    padding: '12px 16px',
+    border: '1.5px solid var(--border)', borderRadius: 12,
     background: '#fff', cursor: 'pointer', display: 'flex',
-    alignItems: 'center', gap: 8, fontFamily: 'var(--font-body)',
-    color: 'var(--text-secondary)', transition: 'all 0.15s',
+    alignItems: 'center', gap: 10, fontFamily: 'var(--font-body)',
+    color: 'var(--text-secondary)', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
   },
   langBtnActive: {
     border: '1.5px solid var(--teal)',
     background: 'var(--teal-light)', color: 'var(--teal-dark)',
+    boxShadow: '0 4px 12px rgba(20, 184, 166, 0.15)'
   },
-  langFlag: { fontSize: '1.2rem' },
-  error: { background: '#fee2e2', color: '#b91c1c', padding: '10px 14px', borderRadius: 8, fontSize: '0.88rem' },
+  langFlag: { fontSize: '1.4rem' },
+  error: { background: '#fee2e2', color: '#b91c1c', padding: '12px 16px', borderRadius: 10, fontSize: '0.9rem', fontWeight: 500 },
   infoGrid: { display: 'flex', flexDirection: 'column' },
 };

@@ -12,7 +12,8 @@ import { getOrCreateConversation } from '../services/messageService';
 import { getAllUsers, getUserById } from '../services/userService';
 import { 
   notifyMaintenanceResolved, notifyEBMUpload, 
-  notifyContractCreated, notifyNoticeFromOwner 
+  notifyContractCreated, notifyNoticeFromOwner,
+  notifyPropertyUpdated, notifyOwnerNoticeToTenant,
 } from '../services/emailService';
 import { uploadMultiple, uploadToCloudinary } from '../utils/cloudinaryUpload';
 import { useToast } from '../hooks/useToast';
@@ -411,7 +412,18 @@ export default function OwnerDashboard() {
         status: form.status, isPublic: form.isPublic,
         ownerId: userProfile.id, images,
       };
-      if (editingId) { await updateProperty(editingId, data); show('Property updated!'); }
+      if (editingId) { 
+        await updateProperty(editingId, data); 
+        show('Property updated!');
+        // Notify tenant if one is assigned
+        const existing = properties.find(p => p.id === editingId);
+        if (existing?.tenantId) {
+          const tenant = await getUserById(existing.tenantId).catch(() => null);
+          if (tenant?.email) {
+            notifyPropertyUpdated(tenant.email, tenant.name, userProfile.name, data.title, 'Please log in to see the latest details.');
+          }
+        }
+      }
       else { await createProperty(data as any); show('Property created!'); }
       setShowForm(false); setEditingId(null); setForm({ ...EMPTY_FORM, currency: defaultCurrency }); setImageFiles([]);
       await load();
@@ -720,24 +732,35 @@ export default function OwnerDashboard() {
             <div className="form-group" style={{ gridColumn: '1 / -1' }}><label className="form-label">Description</label><textarea className="form-input" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} /></div>
             
             <div style={{ gridColumn: '1 / -1', marginTop: 8 }}>
-              <label className="form-label" style={{ marginBottom: 12 }}>Pick Location on Map</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <label className="form-label" style={{ margin: 0 }}>📍 Map Preview</label>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  {form.latitude && form.longitude ? '✓ Coordinates set' : 'Click the map or type an address to set location'}
+                </span>
+              </div>
               <PropertyMap 
                 lat={form.latitude ? Number(form.latitude) : undefined} 
-                lng={form.longitude ? Number(form.longitude) : undefined} 
+                lng={form.longitude ? Number(form.longitude) : undefined}
+                locationName={form.location || undefined}
                 isPicker={true} 
-                onChange={(lat, lng) => setForm(f => ({ ...f, latitude: String(lat), longitude: String(lng) }))}
-                height={280}
+                onChange={(lat, lng) => setForm(f => ({ ...f, latitude: String(parseFloat(lat.toFixed(6))), longitude: String(parseFloat(lng.toFixed(6))) }))}
+                height={260}
               />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
-                <div className="form-group">
-                  <label className="form-label">Latitude</label>
-                  <input className="form-input" type="number" step="any" value={form.latitude} onChange={e => setForm(f => ({ ...f, latitude: e.target.value }))} placeholder="-1.9441" />
+              <details style={{ marginTop: 10 }}>
+                <summary style={{ fontSize: '0.8rem', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }}>
+                  ⚙ Override with exact coordinates (optional)
+                </summary>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 10 }}>
+                  <div className="form-group">
+                    <label className="form-label">Latitude</label>
+                    <input className="form-input" type="number" step="any" value={form.latitude} onChange={e => setForm(f => ({ ...f, latitude: e.target.value }))} placeholder="-1.9441" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Longitude</label>
+                    <input className="form-input" type="number" step="any" value={form.longitude} onChange={e => setForm(f => ({ ...f, longitude: e.target.value }))} placeholder="30.0619" />
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Longitude</label>
-                  <input className="form-input" type="number" step="any" value={form.longitude} onChange={e => setForm(f => ({ ...f, longitude: e.target.value }))} placeholder="30.0619" />
-                </div>
-              </div>
+              </details>
             </div>
             
             <div className="form-group" style={{ gridColumn: '1 / -1' }}><label className="form-label">Amenities (comma-separated)</label><input className="form-input" value={form.amenities} onChange={e => setForm(f => ({ ...f, amenities: e.target.value }))} placeholder="WiFi, Parking, Pool..." /></div>
@@ -1043,14 +1066,47 @@ export default function OwnerDashboard() {
                 const prop = properties.find(p => p.id === c.propertyId);
                 return (
                   <div key={c.id} className="card" style={{ padding: 20 }}>
-                    <div style={{ fontWeight: 600, fontSize: '1.1rem' }}>{prop?.title}</div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '8px 0' }}>Tenant: {allTenants.find(u => u.id === c.tenantId)?.name}</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                      <div style={{ fontSize: '0.85rem' }}>Rent: <strong>{formatCurrency(c.rentAmount, c.currency)}</strong></div>
-                      <div style={{ fontSize: '0.85rem' }}>Fee: <strong>{c.lateFeePercent}%</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '1.05rem' }}>{prop?.title}</div>
+                        <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 2 }}>Tenant: <strong>{allTenants.find(u => u.id === c.tenantId)?.name}</strong></div>
+                      </div>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '3px 10px', borderRadius: 20,
+                        background: c.status === 'active' ? 'var(--sage-100)' : c.status === 'on_notice' ? '#fef3c7' : '#f1f5f9',
+                        color: c.status === 'active' ? 'var(--sage-700)' : c.status === 'on_notice' ? '#92400e' : '#64748b',
+                      }}>{c.status.replace('_', ' ')}</span>
                     </div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                      <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '8px 10px' }}>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Rent</div>
+                        <div style={{ fontWeight: 700, color: 'var(--teal)', fontSize: '0.95rem' }}>{formatCurrency(c.rentAmount, c.currency)}</div>
+                      </div>
+                      <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '8px 10px' }}>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Period</div>
+                        <div style={{ fontSize: '0.78rem', fontWeight: 500 }}>{c.startDate} → {c.endDate}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <button className="btn btn-ghost btn-sm" onClick={() => handleEditContract(c)}>Edit</button>
+                      {c.status === 'active' && (
+                        <button className="btn btn-secondary btn-sm" onClick={async () => {
+                          if (!confirm('Issue a 30-day move-out notice to the tenant? They will be notified by email.')) return;
+                          try {
+                            await updateContract(c.id, { status: 'on_notice', noticeDate: new Date().toISOString() });
+                            const tenant = allTenants.find(u => u.id === c.tenantId);
+                            if (tenant?.email && userProfile) {
+                              notifyOwnerNoticeToTenant(tenant.email, tenant.name, userProfile.name, prop?.title || 'Property', 30);
+                            }
+                            show('Move-out notice issued and tenant notified.');
+                            await load();
+                          } catch { show('Failed to issue notice.', 'error'); }
+                        }}>📢 Issue Notice</button>
+                      )}
+                      {c.status === 'on_notice' && (
+                        <span style={{ fontSize: '0.75rem', color: '#92400e', background: '#fef3c7', padding: '4px 10px', borderRadius: 20, fontWeight: 600 }}>
+                          📢 Notice since {c.noticeDate ? new Date(c.noticeDate).toLocaleDateString() : 'recently'}
+                        </span>
+                      )}
                       <button className="btn btn-danger btn-sm" onClick={() => handleDeleteContract(c.id)}>Delete</button>
                     </div>
                   </div>

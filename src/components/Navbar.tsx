@@ -248,7 +248,7 @@ export default function Navbar() {
     ];
     if (r === 'tenant') return [
       { to: '/my-rent', label: '🏠 My Rent' },
-      { to: '/maintenance', label: '🔧 ' + t('maintenance') },
+      { to: '/tenant-analytics', label: '📊 Analytics' },
     ];
     return [];
   };

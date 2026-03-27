@@ -176,6 +176,38 @@ export const notifyContractCreated = (
     email: tenantEmail,
   });
 
+/** Owner updates property details — notifies the current tenant */
+export const notifyPropertyUpdated = (
+  tenantEmail: string,
+  tenantName: string,
+  ownerName: string,
+  propertyTitle: string,
+  changes: string,
+) =>
+  send({
+    timestamp: now(),
+    to_name: tenantName,
+    message_preview: `The property "${propertyTitle}" has been updated by the owner ${ownerName}. ${changes}`,
+    sender_name: ownerName,
+    email: tenantEmail,
+  });
+
+/** Owner issues move-out notice to tenant */
+export const notifyOwnerNoticeToTenant = (
+  tenantEmail: string,
+  tenantName: string,
+  ownerName: string,
+  propertyTitle: string,
+  noticeDays: number,
+) =>
+  send({
+    timestamp: now(),
+    to_name: tenantName,
+    message_preview: `You have been issued a ${noticeDays}-day move-out notice for "${propertyTitle}" by the owner ${ownerName}. Please make arrangements accordingly.`,
+    sender_name: ownerName,
+    email: tenantEmail,
+  });
+
 /** Quick test — call from browser console: testEmailJS('you@example.com') */
 export const testEmailJS = async (toEmail = 'test@example.com'): Promise<boolean> => {
   console.log('🧪 Testing EmailJS...');
