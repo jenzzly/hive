@@ -67,11 +67,14 @@ export const getOwnerRequests = async (propertyIds: string[]): Promise<Maintenan
   return snap.docs.map(normalize);
 };
 
+import { resolveFileUrl } from '../utils/contentsUpload';
+
 function normalize(snap: any): MaintenanceRequest {
   const data = snap.data();
   return {
     ...data,
     id: snap.id,
+    images: (data.images || []).map(resolveFileUrl),
     createdAt: data.createdAt?.toDate?.()?.toISOString?.() ?? data.createdAt ?? '',
     resolvedAt: data.resolvedAt?.toDate?.()?.toISOString?.() ?? data.resolvedAt,
   } as MaintenanceRequest;

@@ -15,7 +15,7 @@ import {
   notifyContractCreated, notifyNoticeFromOwner,
   notifyPropertyUpdated, notifyOwnerNoticeToTenant,
 } from '../services/emailService';
-import { uploadMultiple, uploadToCloudinary } from '../utils/cloudinaryUpload';
+import { uploadMultiple, uploadContent } from '../utils/contentsUpload';
 import { useToast } from '../hooks/useToast';
 import ContractViewer from '../components/ContractViewer';
 import PropertyTypeSelector from '../components/PropertyTypeSelector';
@@ -463,7 +463,7 @@ export default function OwnerDashboard() {
     setSaving(true);
     try {
       let docUrl = (editingContractId ? contracts.find(c => c.id === editingContractId)?.contractDocumentURL : '') || '';
-      if (contractFile) docUrl = await uploadToCloudinary(contractFile, 'contracts');
+      if (contractFile) docUrl = await uploadContent(contractFile, 'contracts');
 
       const contractData = {
         propertyId: contractForm.propertyId,
@@ -622,7 +622,7 @@ export default function OwnerDashboard() {
 
   const handleUpdateEBM = async (paymentId: string, file: File) => {
     try {
-      const url = await uploadToCloudinary(file);
+      const url = await uploadContent(file);
       await updatePayment(paymentId, { ebmUrl: url });
       show('EBM receipt uploaded.');
       

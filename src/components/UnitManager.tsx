@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getPropertyUnits, createUnit, updateUnit, deleteUnit } from '../services/unitService';
-import { uploadMultiple } from '../utils/cloudinaryUpload';
+import { uploadMultiple } from '../utils/contentsUpload';
 import { formatCurrency } from '../utils/format';
 import type { Unit, Property, Currency, PropertyStatus } from '../types';
 

@@ -4,6 +4,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { RentPayment, PaymentStatus } from '../types';
+import { resolveFileUrl } from '../utils/contentsUpload';
 
 const COL = 'rentPayments';
 
@@ -12,6 +13,8 @@ function normalize(snap: any): RentPayment {
   return {
     ...d,
     id: snap.id,
+    proofUrl: d.proofUrl ? resolveFileUrl(d.proofUrl) : undefined,
+    ebmUrl: d.ebmUrl ? resolveFileUrl(d.ebmUrl) : undefined,
     createdAt: d.createdAt?.toDate?.()?.toISOString?.() ?? d.createdAt ?? '',
     verifiedAt: d.verifiedAt?.toDate?.()?.toISOString?.() ?? d.verifiedAt,
   } as RentPayment;

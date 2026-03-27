@@ -4,6 +4,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { ReimbursementRequest, ReimbursementStatus } from '../types';
+import { resolveFileUrl } from '../utils/contentsUpload';
 
 const COL = 'reimbursementRequests';
 
@@ -12,6 +13,7 @@ function normalize(snap: any): ReimbursementRequest {
   return {
     ...d,
     id: snap.id,
+    receiptUrl: d.receiptUrl ? resolveFileUrl(d.receiptUrl) : undefined,
     createdAt: d.createdAt?.toDate?.()?.toISOString?.() ?? d.createdAt ?? '',
     resolvedAt: d.resolvedAt?.toDate?.()?.toISOString?.() ?? d.resolvedAt,
   } as ReimbursementRequest;

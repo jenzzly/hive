@@ -5,7 +5,7 @@ import { getTenantContracts, updateContract } from '../services/contractService'
 import { getTenantRequests, createMaintenanceRequest, updateMaintenanceRequest } from '../services/maintenanceService';
 import { getTenantPayments, createRentPayment, updatePayment, deletePayment } from '../services/paymentService';
 import { getTenantReimbursements, createReimbursementRequest } from '../services/reimbursementService';
-import { uploadToCloudinary, uploadMultiple } from '../utils/cloudinaryUpload';
+import { uploadContent, uploadMultiple } from '../utils/contentsUpload';
 import { useToast } from '../hooks/useToast';
 import { getUserById } from '../services/userService';
 import { notifyMaintenanceCreated, notifyNoticePeriod } from '../services/emailService';
@@ -158,7 +158,7 @@ export default function TenantDashboard() {
     try {
       let proofUrl = editingPayment ? editingPayment.proofUrl : '';
       if (proofFile) {
-        proofUrl = await uploadToCloudinary(proofFile, 'payments');
+        proofUrl = await uploadContent(proofFile, 'payments');
       }
       
       const contract = contracts.find(c => c.propertyId === payForm.propertyId && c.status === 'active');

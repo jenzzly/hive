@@ -4,6 +4,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Property } from '../types';
+import { resolveFileUrl } from '../utils/contentsUpload';
 
 const COL = 'properties';
 
@@ -13,6 +14,8 @@ function normalize(snap: any): Property {
   return {
     ...d,
     id: snap.id,
+    images: (d.images || []).map(resolveFileUrl),
+    contractTemplate: d.contractTemplate ? resolveFileUrl(d.contractTemplate) : undefined,
     createdAt: d.createdAt?.toDate?.()?.toISOString?.() ?? d.createdAt ?? '',
   } as Property;
 }

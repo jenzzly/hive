@@ -5,7 +5,7 @@ import { updateUserProfile } from '../services/userService';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { useToast } from '../hooks/useToast';
-import { uploadToCloudinary } from '../utils/cloudinaryUpload';
+import { uploadContent } from '../utils/contentsUpload';
 import type { Language } from '../types';
 
 const LANGUAGES: { code: Language; label: string; native: string }[] = [
@@ -120,7 +120,7 @@ export default function SettingsPage() {
                     if (!f) return;
                     setSavingProfile(true);
                     try {
-                      const url = await uploadToCloudinary(f, 'profiles');
+                      const url = await uploadContent(f, 'profiles');
                       await updateUserProfile(userProfile.id, { photoURL: url });
                       await refreshProfile();
                       show(t('profileUpdated'));

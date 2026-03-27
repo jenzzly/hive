@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { uploadMultiple } from '../utils/cloudinaryUpload';
+import { uploadMultiple } from '../utils/contentsUpload';
 import type { MaintenancePriority, MaintenanceRequest } from '../types';
 
 interface Props {

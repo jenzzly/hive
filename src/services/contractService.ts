@@ -68,11 +68,14 @@ export const getAllContracts = async (): Promise<Contract[]> => {
   return snap.docs.map(normalize);
 };
 
+import { resolveFileUrl } from '../utils/contentsUpload';
+
 function normalize(snap: any): Contract {
   const data = snap.data();
   return {
     ...data,
     id: snap.id,
+    documentUrl: data.documentUrl ? resolveFileUrl(data.documentUrl) : undefined,
     createdAt: data.createdAt?.toDate?.()?.toISOString?.() ?? data.createdAt ?? '',
   } as Contract;
 }
