@@ -3,6 +3,7 @@ import {
   doc,
   addDoc,
   updateDoc,
+  deleteDoc,
   getDocs,
   query,
   where,
@@ -34,6 +35,10 @@ export const updateMaintenanceRequest = async (
     update.resolvedAt = serverTimestamp();
   }
   await updateDoc(doc(db, COL, id), update);
+};
+
+export const deleteMaintenanceRequest = async (id: string): Promise<void> => {
+  await deleteDoc(doc(db, COL, id));
 };
 
 export const getTenantRequests = async (tenantId: string): Promise<MaintenanceRequest[]> => {

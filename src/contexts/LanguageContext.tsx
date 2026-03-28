@@ -16,7 +16,7 @@ type TranslationKey =
   | 'changePassword' | 'newPassword' | 'confirmPassword' | 'profileUpdated'
   | 'passwordUpdated' | 'english' | 'french' | 'kinyarwanda' | 'forgotPassword'
   | 'sendResetLink' | 'resetEmailSent' | 'backToLogin' | 'resetPassword' | 'prev' | 'next' | 'messages'
-  | 'propertyLocation' | 'openInMap' | 'profileInformation';
+  | 'propertyLocation' | 'openInMap' | 'profileInformation' | 'home';
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -54,6 +54,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     prev: 'Prev', next: 'Next', messages: 'Messages',
     propertyLocation: 'Property Location', openInMap: 'Open in Full Map',
     profileInformation: 'Profile Information',
+    home: 'Home',
   },
   fr: {
     browse: 'Parcourir', dashboard: 'Tableau de bord', myProperty: 'Ma Propriété',
@@ -90,6 +91,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     prev: 'Précédent', next: 'Suivant', messages: 'Messages',
     propertyLocation: 'Localisation du bien', openInMap: 'Ouvrir la carte',
     profileInformation: 'Informations du profil',
+    home: 'Accueil',
   },
   rw: {
     browse: 'Reba', dashboard: 'Ikibaho', myProperty: 'Inzu Yanjye',
@@ -126,6 +128,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     prev: 'Ibanze', next: 'Imbere', messages: 'Ubutumwa',
     propertyLocation: 'Aho inzu iherereye', openInMap: 'Fungura ikarita',
     profileInformation: 'Amakuru y\'umwirondoro',
+    home: 'Ahabanza',
   },
 };
 

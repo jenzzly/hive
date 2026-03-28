@@ -66,7 +66,7 @@ export const sendMessage = async (
   });
 };
 
-// ─── Delete a single message ─────────────────────────────────────────────
+// ─── Delete a single message (Hard delete) ───────────────────────────────
 export const deleteMessage = async (id: string): Promise<void> => {
   await deleteDoc(doc(db, MSGS, id));
 };

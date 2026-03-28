@@ -18,6 +18,7 @@ export default function Footer() {
                 <div className="footer-links" style={{ display: 'flex', gap: 20, fontSize: '0.85rem', opacity: 0.8 }}>
                     <a href="/privacy">Privacy Policy</a>
                     <a href="/terms">Terms of Service</a>
+                    <a href="mailto:info@terraviser.com?subject=Bug Report" style={{ color: '#ef4444' }}>🪲 Report a bug</a>
                 </div>
                 <div className="footer-copy">
                     © {new Date().getFullYear()} Terraviser. All rights reserved.

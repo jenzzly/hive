@@ -43,7 +43,7 @@ service cloud.firestore {
     match /contracts/{contractId} {
       allow read: if isPriv() || (authed() && (resource.data.tenantId == uid() || resource.data.ownerId == uid()));
       allow create, update: if isPriv() || (isOwner() && request.resource.data.ownerId == uid()) || (authed() && resource.data.tenantId == uid());
-      allow delete: if isPriv();
+      allow delete: if isPriv() || (isOwner() && resource.data.ownerId == uid());
     }
 
     // ── MAINTENANCE REQUESTS ──
@@ -51,7 +51,7 @@ service cloud.firestore {
       allow read: if authed();
       allow create: if authed() && ((isTenant() && request.resource.data.tenantId == uid()) || isPriv());
       allow update: if isPriv() || isOwner() || (isTenant() && resource.data.tenantId == uid());
-      allow delete: if isPriv();
+      allow delete: if isPriv() || isOwner() || (isTenant() && resource.data.tenantId == uid());
     }
 
     // ── BOOKING REQUESTS ──

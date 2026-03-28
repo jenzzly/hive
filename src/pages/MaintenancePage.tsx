@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getTenantRequests, getOwnerRequests, updateMaintenanceRequest, createMaintenanceRequest } from '../services/maintenanceService';
+import { getTenantRequests, getOwnerRequests, updateMaintenanceRequest, createMaintenanceRequest, deleteMaintenanceRequest } from '../services/maintenanceService';
 import { getTenantProperty, getOwnerProperties } from '../services/propertyService';
 import { useToast } from '../hooks/useToast';
 import MaintenanceForm from '../components/MaintenanceForm';
@@ -55,6 +55,17 @@ export default function MaintenancePage() {
       await load();
     } catch (err: any) {
       show(err.message || 'Failed to save request.', 'error');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this maintenance request?')) return;
+    try {
+      await deleteMaintenanceRequest(id);
+      show('Request deleted!');
+      await load();
+    } catch {
+      show('Failed to delete request.', 'error');
     }
   };
 
@@ -175,12 +186,24 @@ export default function MaintenancePage() {
 
                         {/* Tenant Actions */}
                         {canEdit && (
-                          <button className="btn btn-ghost btn-sm" onClick={() => {
-                            setEditingRequest(r);
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                          }}>
-                            Edit Details
-                          </button>
+                          <>
+                            <button className="btn btn-ghost btn-sm" onClick={() => {
+                              setEditingRequest(r);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}>
+                              Edit Details
+                            </button>
+                            <button className="btn btn-danger btn-sm btn-ghost" onClick={() => handleDelete(r.id)}>
+                              Delete
+                            </button>
+                          </>
+                        )}
+
+                        {/* Owner can also delete */}
+                        {userProfile.role !== 'tenant' && (
+                           <button className="btn btn-danger btn-sm btn-ghost" style={{ marginLeft: 'auto' }} onClick={() => handleDelete(r.id)}>
+                             Delete
+                           </button>
                         )}
                       </div>
 

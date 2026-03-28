@@ -6,6 +6,7 @@ import {
   sendMessage,
   markConversationRead,
   deleteMessage,
+  deleteConversation,
   archiveConversation,
   unarchiveConversation,
 } from '../services/messageService';
@@ -31,7 +32,9 @@ export default function MessagesPage() {
   const [otherUserEmail, setOtherUserEmail] = useState('');
   const [otherUserName, setOtherUserName] = useState('');
   const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
+  const [selectedMsgId, setSelectedMsgId] = useState<string | null>(null);
   const [convMenuId, setConvMenuId] = useState<string | null>(null);
+  const [isMobileView, setIsMobileView] = useState(window.innerWidth <= 800);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const unsubMsgsRef = useRef<(() => void) | null>(null);
@@ -57,8 +60,10 @@ export default function MessagesPage() {
         setConvMenuId(null);
       }
     };
+    const r = () => setIsMobileView(window.innerWidth <= 800);
     document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
+    window.addEventListener('resize', r);
+    return () => { document.removeEventListener('mousedown', h); window.removeEventListener('resize', r); };
   }, []);
 
   useEffect(() => {
@@ -110,9 +115,10 @@ export default function MessagesPage() {
   };
 
   const handleDeleteMessage = async (msgId: string) => {
+    if (!confirm('Are you sure you want to delete this message? This cannot be undone.')) return;
     try {
       await deleteMessage(msgId);
-      show('Message deleted.');
+      // No need to show toast, it updates in real-time
     } catch {
       show('Failed to delete message.', 'error');
     }
@@ -129,6 +135,18 @@ export default function MessagesPage() {
     await unarchiveConversation(conv.id, role);
     setConvMenuId(null);
     show('Conversation restored to inbox.');
+  };
+
+  const handleDeleteConversation = async (conv: Conversation) => {
+    if (!confirm('Are you sure you want to PERMANENTLY delete this entire conversation and all messages for BOTH parties?')) return;
+    try {
+      await deleteConversation(conv.id);
+      setConvMenuId(null);
+      if (activeConv?.id === conv.id) setActiveConv(null);
+      show('Conversation deleted.');
+    } catch {
+      show('Failed to delete conversation.', 'error');
+    }
   };
 
   // ── Derived ─────────────────────────────────────────────────────────────
@@ -149,9 +167,12 @@ export default function MessagesPage() {
         <p className="page-subtitle">Your conversations with {role === 'owner' ? 'tenants' : 'your landlord'}.</p>
       </div>
 
-      <div style={S.layout}>
+      <div style={{
+        ...S.layout,
+        gridTemplateColumns: (isMobileView && activeConv) ? '0px 1fr' : (isMobileView ? '1fr 0px' : '300px 1fr')
+      }}>
         {/* ── Sidebar ── */}
-        <div style={S.sidebar}>
+        <div style={{...S.sidebar, display: (isMobileView && activeConv) ? 'none' : 'flex'}}>
 
           {/* Inbox / Archived toggle */}
           <div style={{ display: 'flex', gap: 3, padding: '10px 12px', borderBottom: '1px solid var(--border)', background: '#fff' }}>
@@ -179,48 +200,53 @@ export default function MessagesPage() {
               const menuOpen = convMenuId === conv.id;
 
               return (
-                <div key={conv.id} style={{ position: 'relative' }}>
+                <div key={conv.id} style={{ position: 'relative', margin: '4px 8px' }}>
                   <button onClick={() => openConversation(conv)} style={{
                     ...S.convItem,
-                    background: isActive ? 'var(--terra-100)' : 'transparent',
-                    borderLeft: isActive ? `3px solid var(--terra-600)` : '3px solid transparent',
+                    background: isActive ? 'var(--teal-light)' : 'transparent',
+                    borderRadius: 12,
+                    borderLeft: isActive ? `4px solid var(--teal)` : '4px solid transparent',
+                    boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
                   }}>
-                    <div style={S.convAvatar}>{role === 'owner' ? '👤' : '🏠'}</div>
+                    <div style={{...S.convAvatar, background: isActive ? 'var(--teal)' : 'var(--surface2)', color: isActive ? '#fff' : 'var(--teal)'}}>
+                      {role === 'owner' ? '👤' : '🏢'}
+                    </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 }}>
-                        <div style={{ fontWeight: 600, fontSize: '0.88rem', color: isActive ? 'var(--terra-700)' : 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: isActive ? 'var(--teal-dark)' : 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {conv.propertyTitle}
                         </div>
                         {unread > 0 && <span style={S.unreadDot}>{unread}</span>}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>
+                      <div style={{ fontSize: '0.78rem', color: isActive ? 'var(--teal)' : 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2, opacity: 0.8 }}>
                         {conv.lastMessage || 'No messages yet'}
                       </div>
                     </div>
                   </button>
 
-                  {/* ⋯ menu button */}
                   <button
                     onClick={e => { e.stopPropagation(); setConvMenuId(menuOpen ? null : conv.id); }}
-                    style={{ position: 'absolute', top: '50%', right: 8, transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 6, color: 'var(--text-muted)', fontSize: '1rem', lineHeight: 1, opacity: isActive || menuOpen ? 1 : 0, transition: 'opacity 0.15s' }}
+                    style={{ position: 'absolute', top: '50%', right: 12, transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 6, color: 'var(--text-muted)', fontSize: '1rem', lineHeight: 1, opacity: isActive || menuOpen ? 1 : 0, transition: 'opacity 0.15s', backdropFilter: 'blur(4px)' }}
                     className="conv-menu-btn"
-                    title="More options"
                   >
                     ⋯
                   </button>
 
-                  {/* Dropdown */}
                   {menuOpen && (
                     <div ref={convMenuRef} style={S.convDropdown}>
                       {inbox === 'active' ? (
                         <button style={S.menuItem} onClick={() => handleArchive(conv)}>
-                          <span>📦</span> Archive conversation
+                          <span>📦</span> Archive
                         </button>
                       ) : (
                         <button style={S.menuItem} onClick={() => handleUnarchive(conv)}>
-                          <span>📥</span> Restore to inbox
+                          <span>📥</span> Restore
                         </button>
                       )}
+                      <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                      <button style={{ ...S.menuItem, color: '#ef4444' }} onClick={() => handleDeleteConversation(conv)}>
+                        <span>🗑</span> Delete for everyone
+                      </button>
                     </div>
                   )}
                 </div>
@@ -242,33 +268,35 @@ export default function MessagesPage() {
             <>
               {/* Chat header */}
               <div style={S.chatHeader}>
-                <div style={{ ...S.convAvatar, width: 36, height: 36 }}>{role === 'owner' ? '👤' : '🏠'}</div>
+                {isMobileView && (
+                  <button 
+                    onClick={() => setActiveConv(null)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '0 8px 0 0', color: 'var(--teal)' }}
+                  >
+                    ←
+                  </button>
+                )}
+                <div style={{ ...S.convAvatar, width: 40, height: 40, background: 'var(--teal)', color: '#fff' }}>{role === 'owner' ? '👤' : '🏢'}</div>
                 <div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '1rem', color: 'var(--terra-900)' }}>{activeConv.propertyTitle}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    {role === 'owner' ? `Tenant: ${otherUserName || '…'}` : `Owner: ${otherUserName || '…'}`}
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.05rem', color: 'var(--teal-dark)' }}>{activeConv.propertyTitle}</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e' }} />
+                    {role === 'owner' ? (otherUserName || 'Tenant') : (otherUserName || 'Owner')}
                   </div>
                 </div>
 
-                {/* Archive from header */}
-                {inbox === 'active' && (
-                  <button
-                    onClick={() => handleArchive(activeConv)}
-                    title="Archive conversation"
-                    style={{ marginLeft: 'auto', background: 'none', border: '1px solid var(--border-strong)', borderRadius: 8, cursor: 'pointer', padding: '6px 12px', fontSize: '0.78rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 5, transition: 'all 0.15s' }}
-                  >
-                    📦 Archive
-                  </button>
-                )}
-                {inbox === 'archived' && (
-                  <button
-                    onClick={() => handleUnarchive(activeConv)}
-                    title="Restore to inbox"
-                    style={{ marginLeft: 'auto', background: 'none', border: '1px solid var(--border-strong)', borderRadius: 8, cursor: 'pointer', padding: '6px 12px', fontSize: '0.78rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 5, transition: 'all 0.15s' }}
-                  >
-                    📥 Restore
-                  </button>
-                )}
+                {/* Header Actions */}
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                   {inbox === 'active' ? (
+                    <button onClick={() => handleArchive(activeConv)} title="Archive" style={S.headerActionBtn}>
+                      📦 <span className={isMobileView ? "hide" : ""}>Archive</span>
+                    </button>
+                  ) : (
+                    <button onClick={() => handleUnarchive(activeConv)} title="Restore" style={S.headerActionBtn}>
+                      📥 <span className={isMobileView ? "hide" : ""}>Restore</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Messages area */}
@@ -279,49 +307,63 @@ export default function MessagesPage() {
                   </div>
                 )}
 
-                {messages.map(msg => {
+                {messages.map((msg, idx) => {
                   const isMine = msg.senderId === userProfile.id;
                   const isHovered = hoveredMsgId === msg.id;
                   const isDeleted = msg.deleted;
+                  
+                  // Simple Date Divider logic
+                  const prevMsg = messages[idx - 1];
+                  const showDate = !prevMsg || new Date(prevMsg.createdAt).toDateString() !== new Date(msg.createdAt).toDateString();
 
                   return (
-                    <div
-                      key={msg.id}
-                      style={{ display: 'flex', flexDirection: isMine ? 'row-reverse' : 'row', gap: 8, alignItems: 'flex-end', marginBottom: 12 }}
-                      onMouseEnter={() => setHoveredMsgId(msg.id)}
-                      onMouseLeave={() => setHoveredMsgId(null)}
-                    >
-                      <div style={{ ...S.msgAvatar, background: isMine ? 'var(--terra-600)' : 'var(--stone-100)', color: isMine ? '#fff' : 'var(--text-secondary)' }}>
-                        {msg.senderName.charAt(0).toUpperCase()}
-                      </div>
+                    <div key={msg.id}>
+                      {showDate && (
+                        <div style={{ textAlign: 'center', margin: '24px 0 16px' }}>
+                          <span style={{ background: 'var(--surface2)', padding: '4px 12px', borderRadius: 12, fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            {new Date(msg.createdAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                          </span>
+                        </div>
+                      )}
+                      
+                      <div
+                        style={{ display: 'flex', flexDirection: isMine ? 'row-reverse' : 'row', gap: 8, alignItems: 'flex-end', marginBottom: 6 }}
+                        onMouseEnter={() => setHoveredMsgId(msg.id)}
+                        onMouseLeave={() => setHoveredMsgId(null)}
+                      >
+                        <div style={{ ...S.msgAvatar, background: isMine ? 'var(--teal)' : 'var(--surface3)', color: isMine ? '#fff' : 'var(--text-secondary)', width: 24, height: 24, fontSize: '0.65rem' }}>
+                          {msg.senderName.charAt(0).toUpperCase()}
+                        </div>
 
-                      <div style={{ maxWidth: '68%', display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start' }}>
-                        {isDeleted ? (
-                          /* Deleted message tombstone */
-                          <div style={{ ...S.bubble, background: 'var(--stone-100)', color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.82rem', borderRadius: 12, border: '1px dashed var(--stone-300)' }}>
-                            Message deleted
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, flexDirection: isMine ? 'row' : 'row-reverse' }}>
-                            {/* Delete button — only own messages, only on hover */}
-                            {isMine && isHovered && (
-                              <button
-                                onClick={() => handleDeleteMessage(msg.id)}
-                                title="Delete message"
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', borderRadius: 6, color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1, transition: 'color 0.12s', flexShrink: 0 }}
-                                onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
-                                onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
-                              >
-                                🗑
-                              </button>
-                            )}
-                            <div style={{ ...S.bubble, background: isMine ? 'var(--terra-600)' : '#fff', color: isMine ? '#fff' : 'var(--text-primary)', borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', border: isMine ? 'none' : '1px solid var(--border)' }}>
+                        <div style={{ maxWidth: '75%', display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexDirection: isMine ? 'row-reverse' : 'row' }}>
+                            <div 
+                              onClick={() => setSelectedMsgId(selectedMsgId === msg.id ? null : msg.id)}
+                              style={{ 
+                              ...S.bubble, 
+                              cursor: 'pointer',
+                              background: isMine ? 'linear-gradient(135deg, var(--teal-mid) 0%, var(--teal) 100%)' : '#fff', 
+                              color: isMine ? '#fff' : 'var(--text-primary)', 
+                              borderRadius: isMine ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                              boxShadow: isMine ? '0 2px 5px rgba(29,158,117,0.15)' : '0 1px 3px rgba(0,0,0,0.08)',
+                              border: isMine ? 'none' : '1px solid var(--border)' 
+                            }}>
                               {msg.text}
                             </div>
+                            
+                            {isMine && (isHovered || selectedMsgId === msg.id) && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteMessage(msg.id); }}
+                                title="Delete message"
+                                style={S.msgActionBtn}
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                              </button>
+                            )}
                           </div>
-                        )}
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 3 }}>
-                          {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''}
+                          <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginTop: 2, padding: '0 4px', opacity: 0.7 }}>
+                            {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -448,5 +490,17 @@ const S: Record<string, React.CSSProperties> = {
   unreadDot: {
     background: '#ef4444', color: '#fff', fontSize: '0.65rem',
     fontWeight: 700, padding: '1px 6px', borderRadius: 20, flexShrink: 0,
+  },
+  headerActionBtn: {
+    background: '#fff', border: '1px solid var(--border)', borderRadius: 10,
+    cursor: 'pointer', padding: '8px 14px', fontSize: '0.82rem', fontWeight: 600,
+    color: 'var(--text-secondary)', fontFamily: 'var(--font-body)',
+    display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.15s',
+  },
+  msgActionBtn: {
+    background: 'rgba(255,255,255,0.9)', border: 'none', cursor: 'pointer',
+    width: 28, height: 28, borderRadius: '50%', display: 'flex',
+    alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.1)', transition: 'all 0.12s',
   },
 };

@@ -10,6 +10,7 @@ import { getOwnerPayments, updatePaymentStatus, updatePayment } from '../service
 import { getOwnerReimbursements, updateReimbursementStatus } from '../services/reimbursementService';
 import { getOrCreateConversation } from '../services/messageService';
 import { getAllUsers, getUserById } from '../services/userService';
+import { getPropertyUnits, deleteUnit } from '../services/unitService';
 import { 
   notifyMaintenanceResolved, notifyEBMUpload, 
   notifyContractCreated, notifyNoticeFromOwner,
@@ -25,7 +26,7 @@ import MaintenanceForm from '../components/MaintenanceForm';
 import type {
   Property, Contract, MaintenanceRequest, PropertyStatus,
   BookingRequest, RentPayment, ReimbursementRequest, PropertyCategory,
-  Currency, User,
+  Currency, User, Unit,
 } from '../types';
 import { formatCurrency } from '../utils/format';
 
@@ -448,8 +449,19 @@ export default function OwnerDashboard() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this property?')) return;
-    await deleteProperty(id); show('Deleted.'); await load();
+    if (!confirm('Delete this property? All associated units will also be deleted.')) return;
+    try {
+      // Cleanup units first
+      const units = await getPropertyUnits(id);
+      await Promise.all(units.map(u => deleteUnit(u.id)));
+      
+      // Delete property
+      await deleteProperty(id);
+      show('Property and units deleted.');
+      await load();
+    } catch (err: any) {
+      show('Failed to delete property.', 'error');
+    }
   };
 
   const handleTogglePublic = async (p: Property) => {
@@ -549,11 +561,12 @@ export default function OwnerDashboard() {
     }
   };
 
-  const handleDeleteContract = async (id: string) => {
+  const handleDeleteContract = async (id: string, propertyId: string) => {
     if (!confirm('Delete this contract? This cannot be undone.')) return;
     try {
       await deleteContract(id);
-      show('Contract deleted.');
+      await updateProperty(propertyId, { status: 'available', tenantId: null as any, isPublic: true });
+      show('Contract deleted. Property is now available.');
       await load();
     } catch (err: any) {
       show(err.message || 'Failed to delete', 'error');
@@ -1107,7 +1120,7 @@ export default function OwnerDashboard() {
                           📢 Notice since {c.noticeDate ? new Date(c.noticeDate).toLocaleDateString() : 'recently'}
                         </span>
                       )}
-                      <button className="btn btn-danger btn-sm" onClick={() => handleDeleteContract(c.id)}>Delete</button>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleDeleteContract(c.id, c.propertyId)}>Delete</button>
                     </div>
                   </div>
                 );

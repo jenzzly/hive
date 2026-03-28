@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getAllUsers, updateUserRole, deleteUserDoc, updateUserProfile } from '../services/userService';
 import { getAllProperties, deleteProperty, updateProperty, createProperty } from '../services/propertyService';
+import { getPropertyUnits, deleteUnit } from '../services/unitService';
 import { getAllPayments, updatePaymentStatus, deletePayment, updatePayment, createRentPayment } from '../services/paymentService';
 import { getAllReimbursements, updateReimbursementStatus, deleteReimbursement, updateReimbursement, createReimbursementRequest } from '../services/reimbursementService';
 import { getAllContracts, deleteContract, updateContract, createContract } from '../services/contractService';
@@ -11,9 +12,9 @@ import { useLang } from '../contexts/LanguageContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { formatCurrency } from '../utils/format';
 import type { 
-  User, UserRole, Property, RentPayment, ReimbursementRequest, 
+  User, UserRole, Property, RentPayment, ReimbursementRequest,
   Contract, Currency, PropertyCategory, PropertyType, 
-  ContractStatus, ReimbursementStatus, PaymentStatus, PlatformSettings 
+  ContractStatus, ReimbursementStatus, PaymentStatus, PlatformSettings, Unit 
 } from '../types';
 
 type Tab = 'users' | 'properties' | 'payments' | 'reimbursements' | 'contracts' | 'analytics' | 'settings';
@@ -133,10 +134,7 @@ export default function SuperAdminDashboard() {
     finally { setSaving(false); }
   };
 
-  const handleDeleteProperty = async (id: string) => {
-    if (!confirm('Delete property?')) return;
-    await deleteProperty(id); show('Deleted.'); await load();
-  };
+
 
   const handleSaveProperty = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -215,14 +213,30 @@ export default function SuperAdminDashboard() {
     await deletePayment(id); show('Deleted.'); await load();
   };
 
+  const handleDeleteProperty = async (id: string) => {
+    if (!confirm('Delete this property? All associated units will also be deleted.')) return;
+    try {
+      const units = await getPropertyUnits(id);
+      await Promise.all(units.map(u => deleteUnit(u.id)));
+      await deleteProperty(id);
+      show('Property and units deleted.');
+      await load();
+    } catch (err: any) {
+      show('Failed to delete property.', 'error');
+    }
+  };
+
   const handleDeleteReimb = async (id: string) => {
     if (!confirm('Delete reimbursement?')) return;
     await deleteReimbursement(id); show('Deleted.'); await load();
   };
 
-  const handleDeleteContract = async (id: string) => {
+  const handleDeleteContract = async (id: string, propertyId: string) => {
     if (!confirm('Delete contract?')) return;
-    await deleteContract(id); show('Deleted.'); await load();
+    await deleteContract(id);
+    await updateProperty(propertyId, { status: 'available', tenantId: null as any, isPublic: true });
+    show('Contract deleted and property is now available.'); 
+    await load();
   };
 
   const handleUpdatePlatformSetting = async (updates: Partial<PlatformSettings>) => {
@@ -657,7 +671,7 @@ export default function SuperAdminDashboard() {
                         <td style={MS.td}>
                           <div style={{ display: 'flex', gap: 6 }}>
                             <button className="btn btn-secondary btn-sm" onClick={() => setEditingContract(c)}>Edit</button>
-                            <button className="btn btn-danger btn-sm" onClick={() => handleDeleteContract(c.id)}>Delete</button>
+                            <button className="btn btn-danger btn-sm" onClick={() => handleDeleteContract(c.id, c.propertyId)}>Delete</button>
                           </div>
                         </td>
                       </tr>

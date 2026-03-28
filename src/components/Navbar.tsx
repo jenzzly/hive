@@ -262,7 +262,7 @@ export default function Navbar() {
     return []
   };
 
-  const centerLinks = [{ to: '/', label: '', unread: 0 }, ...mainLinks().map(l => ({ ...l, unread: 0 }))];
+  const centerLinks = [{ to: '/', unread: 0 }, ...mainLinks().map(l => ({ ...l, unread: 0 }))];
   const rLinks = rightActionLinks().map(l => ({
     ...l,
     unread: l.to === '/messages' ? unreadMessages : 0

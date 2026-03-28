@@ -39,7 +39,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     if (userProfile.role === 'superAdmin') return <Navigate to="/super-admin" replace />;
     if (userProfile.role === 'admin') return <Navigate to="/admin" replace />;
     if (userProfile.role === 'owner') return <Navigate to="/dashboard" replace />;
-    if (userProfile.role === 'tenant') return <Navigate to="/my-rent" replace />;
+    if (userProfile.role === 'tenant') return <Navigate to="/" replace />;
   }
   return <>{children}</>;
 }
@@ -51,7 +51,7 @@ function AppRoutes() {
       <div style={{ flex: 1 }}>
         <Routes>
           {/* Public */}
-          <Route path="/" element={<PublicRoute><Home /></PublicRoute>} />
+          <Route path="/" element={<Home />} />
           <Route path="/property/:id" element={<PropertyDetail />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
