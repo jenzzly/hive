@@ -45,9 +45,6 @@ export interface Property {
   price: number;
   currency: Currency;            // USD or RWF
   location: string;
-  latitude?: number;
-  longitude?: number;
-  googlePlaceId?: string;
   amenities: string[];
   images: string[];
   ownerId: string;

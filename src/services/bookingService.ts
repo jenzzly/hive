@@ -13,16 +13,18 @@ import {
 import { db } from './firebase';
 import type { BookingRequest, BookingStatus } from '../types';
 
+import { cleanData } from '../utils/db';
+
 const COL = 'bookingRequests';
 
 export const createBookingRequest = async (
   data: Omit<BookingRequest, 'id' | 'createdAt' | 'status'>
 ): Promise<string> => {
-  const ref = await addDoc(collection(db, COL), {
+  const ref = await addDoc(collection(db, COL), cleanData({
     ...data,
     status: 'pending',
     createdAt: serverTimestamp(),
-  });
+  }));
   return ref.id;
 };
 

@@ -27,11 +27,13 @@ export const updateUserRole = async (userId: string, role: UserRole): Promise<vo
   await updateDoc(doc(db, COL, userId), { role });
 };
 
+import { cleanData } from '../utils/db';
+
 export const updateUserProfile = async (
   userId: string,
   data: Partial<User>
 ): Promise<void> => {
-  await updateDoc(doc(db, COL, userId), data);
+  await updateDoc(doc(db, COL, userId), cleanData(data));
 };
 
 export const deleteUserDoc = async (userId: string): Promise<void> => {

@@ -15,14 +15,16 @@ import type { MaintenanceRequest } from '../types';
 
 const COL = 'maintenanceRequests';
 
+import { cleanData } from '../utils/db';
+
 export const createMaintenanceRequest = async (
   data: Omit<MaintenanceRequest, 'id' | 'createdAt' | 'resolvedAt' | 'status'>
 ): Promise<string> => {
-  const ref = await addDoc(collection(db, COL), {
+  const ref = await addDoc(collection(db, COL), cleanData({
     ...data,
     status: 'open',
     createdAt: serverTimestamp(),
-  });
+  }));
   return ref.id;
 };
 
@@ -34,7 +36,7 @@ export const updateMaintenanceRequest = async (
   if (data.status === 'resolved') {
     update.resolvedAt = serverTimestamp();
   }
-  await updateDoc(doc(db, COL, id), update);
+  await updateDoc(doc(db, COL, id), cleanData(update));
 };
 
 export const deleteMaintenanceRequest = async (id: string): Promise<void> => {

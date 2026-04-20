@@ -9,6 +9,8 @@ import type { Conversation, Message } from '../types';
 const CONVS = 'conversations';
 const MSGS = 'messages';
 
+import { cleanData } from '../utils/db';
+
 // ─── Get or create a conversation ───────────────────────────────────────
 export const getOrCreateConversation = async (
   propertyId: string,
@@ -20,19 +22,19 @@ export const getOrCreateConversation = async (
   const ref = doc(db, CONVS, convId);
   const snap = await getDoc(ref);
   if (!snap.exists()) {
-    await setDoc(ref, {
+    await setDoc(ref, cleanData({
       propertyId,
       propertyTitle,
       ownerId,
       tenantId,
       lastMessage: '',
-      lastMessageAt: null,
+      lastMessageAt: null as any,
       unreadOwner: 0,
       unreadTenant: 0,
       archivedByOwner: false,
       archivedByTenant: false,
       createdAt: serverTimestamp(),
-    });
+    }));
   }
   return convId;
 };
@@ -45,7 +47,7 @@ export const sendMessage = async (
   text: string,
   recipientRole: 'owner' | 'tenant',
 ): Promise<void> => {
-  await addDoc(collection(db, MSGS), {
+  await addDoc(collection(db, MSGS), cleanData({
     conversationId,
     senderId,
     senderName,
@@ -53,17 +55,17 @@ export const sendMessage = async (
     text,
     deleted: false,
     createdAt: serverTimestamp(),
-  });
+  }));
 
   const unreadField = recipientRole === 'owner' ? 'unreadOwner' : 'unreadTenant';
   // Sending a message un-archives the conversation for both sides
-  await updateDoc(doc(db, CONVS, conversationId), {
+  await updateDoc(doc(db, CONVS, conversationId), cleanData({
     lastMessage: text.length > 80 ? text.slice(0, 80) + '…' : text,
     lastMessageAt: serverTimestamp(),
     [unreadField]: increment(1),
     archivedByOwner: false,
     archivedByTenant: false,
-  });
+  }));
 };
 
 // ─── Delete a single message (Hard delete) ───────────────────────────────

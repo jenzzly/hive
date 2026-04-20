@@ -13,15 +13,17 @@ import {
 import { db } from './firebase';
 import type { Contract } from '../types';
 
+import { cleanData } from '../utils/db';
+
 const COL = 'contracts';
 
 export const createContract = async (
   data: Omit<Contract, 'id' | 'createdAt'>
 ): Promise<string> => {
-  const ref = await addDoc(collection(db, COL), {
+  const ref = await addDoc(collection(db, COL), cleanData({
     ...data,
     createdAt: serverTimestamp(),
-  });
+  }));
   return ref.id;
 };
 
@@ -29,7 +31,7 @@ export const updateContract = async (
   id: string,
   data: Partial<Contract>
 ): Promise<void> => {
-  await updateDoc(doc(db, COL, id), data as any);
+  await updateDoc(doc(db, COL, id), cleanData(data as any));
 };
 
 export const deleteContract = async (id: string): Promise<void> => {

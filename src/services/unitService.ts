@@ -35,15 +35,15 @@ export const getUnit = async (id: string): Promise<Unit | null> => {
 export const createUnit = async (
   data: Omit<Unit, 'id' | 'createdAt'>,
 ): Promise<string> => {
-  const ref = await addDoc(collection(db, COL), {
+  const ref = await addDoc(collection(db, COL), cleanData({
     ...data,
     createdAt: serverTimestamp(),
-  });
+  }));
   return ref.id;
 };
 
 export const updateUnit = async (id: string, data: Partial<Unit>): Promise<void> => {
-  await updateDoc(doc(db, COL, id), data as any);
+  await updateDoc(doc(db, COL, id), cleanData(data as any));
 };
 
 export const deleteUnit = async (id: string): Promise<void> => {

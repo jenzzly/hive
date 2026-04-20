@@ -20,14 +20,16 @@ function normalize(snap: any): RentPayment {
   } as RentPayment;
 }
 
+import { cleanData } from '../utils/db';
+
 export const createRentPayment = async (
   data: Omit<RentPayment, 'id' | 'createdAt' | 'verifiedAt'>
 ): Promise<string> => {
-  const ref = await addDoc(collection(db, COL), {
+  const ref = await addDoc(collection(db, COL), cleanData({
     ...data,
     status: 'pending',
     createdAt: serverTimestamp(),
-  });
+  }));
   return ref.id;
 };
 
@@ -37,7 +39,7 @@ export const updatePaymentStatus = async (
 ): Promise<void> => {
   const update: any = { status };
   if (status === 'verified') update.verifiedAt = serverTimestamp();
-  await updateDoc(doc(db, COL, id), update);
+  await updateDoc(doc(db, COL, id), cleanData(update));
 };
 
 export const getTenantPayments = async (tenantId: string): Promise<RentPayment[]> => {
@@ -65,7 +67,7 @@ export const getAllPayments = async (): Promise<RentPayment[]> => {
 };
 
 export const updatePayment = async (id: string, data: Partial<RentPayment>): Promise<void> => {
-  await updateDoc(doc(db, COL, id), data as any);
+  await updateDoc(doc(db, COL, id), cleanData(data as any));
 };
 
 export const deletePayment = async (id: string): Promise<void> => {

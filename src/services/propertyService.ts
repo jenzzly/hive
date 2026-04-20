@@ -67,19 +67,21 @@ export const getAllProperties = async (): Promise<Property[]> => {
   return snap.docs.map(normalize);
 };
 
+import { cleanData } from '../utils/db';
+
 // ─── write ──────────────────────────────────────────────────────────
 export const createProperty = async (
   data: Omit<Property, 'id' | 'createdAt'>,
 ): Promise<string> => {
-  const ref = await addDoc(collection(db, COL), {
+  const ref = await addDoc(collection(db, COL), cleanData({
     ...data,
     createdAt: serverTimestamp(),
-  });
+  }));
   return ref.id;
 };
 
 export const updateProperty = async (id: string, data: Partial<Property>): Promise<void> => {
-  await updateDoc(doc(db, COL, id), data as any);
+  await updateDoc(doc(db, COL, id), cleanData(data as any));
 };
 
 export const deleteProperty = async (id: string): Promise<void> => {

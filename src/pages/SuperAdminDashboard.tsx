@@ -395,12 +395,6 @@ export default function SuperAdminDashboard() {
               <div className="form-group"><label className="form-label">Location</label>
                 <input className="form-input" required value={editingProperty.location || ''} onChange={e => setEditingProperty({ ...editingProperty, location: e.target.value })} />
               </div>
-              <div className="form-group"><label className="form-label">Latitude</label>
-                <input className="form-input" type="number" step="any" value={editingProperty.latitude || ''} onChange={e => setEditingProperty({ ...editingProperty, latitude: Number(e.target.value) })} />
-              </div>
-              <div className="form-group"><label className="form-label">Longitude</label>
-                <input className="form-input" type="number" step="any" value={editingProperty.longitude || ''} onChange={e => setEditingProperty({ ...editingProperty, longitude: Number(e.target.value) })} />
-              </div>
               <div className="form-group"><label className="form-label">Owner ID</label>
                 <input className="form-input" required value={editingProperty.ownerId || ''} onChange={e => setEditingProperty({ ...editingProperty, ownerId: e.target.value })} />
               </div>

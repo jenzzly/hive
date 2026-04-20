@@ -1,18 +1,14 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import {
-  subscribeToConversations,
-  subscribeToMessages,
-  sendMessage,
-  markConversationRead,
-  deleteMessage,
-  deleteConversation,
-  archiveConversation,
-  unarchiveConversation,
+  subscribeToConversations, subscribeToMessages, sendMessage,
+  markConversationRead, deleteMessage, deleteConversation,
+  archiveConversation, unarchiveConversation,
 } from '../services/messageService';
 import { getUserById } from '../services/userService';
 import { emailNewMessage } from '../services/emailService';
 import { useToast } from '../hooks/useToast';
+import { MessagesIcon, ArchiveIcon, TrashIcon, SendIcon, ChevronLeftIcon } from '../components/Icons';
 import type { Conversation, Message } from '../types';
 
 type Inbox = 'active' | 'archived';
@@ -32,38 +28,25 @@ export default function MessagesPage() {
   const [otherUserEmail, setOtherUserEmail] = useState('');
   const [otherUserName, setOtherUserName] = useState('');
   const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
-  const [selectedMsgId, setSelectedMsgId] = useState<string | null>(null);
-  const [convMenuId, setConvMenuId] = useState<string | null>(null);
   const [isMobileView, setIsMobileView] = useState(window.innerWidth <= 800);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const unsubMsgsRef = useRef<(() => void) | null>(null);
-  const convMenuRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const role = userProfile?.role === 'owner' ? 'owner' : 'tenant';
 
-  // ── Subscriptions ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!userProfile) return;
-    const unsub1 = subscribeToConversations(userProfile.id, role, convs => {
-      setConversations(convs);
-      setLoading(false);
-    }, false);
-    const unsub2 = subscribeToConversations(userProfile.id, role, setArchivedConvs, true);
-    return () => { unsub1(); unsub2(); };
+    const u1 = subscribeToConversations(userProfile.id, role, c => { setConversations(c); setLoading(false); }, false);
+    const u2 = subscribeToConversations(userProfile.id, role, setArchivedConvs, true);
+    return () => { u1(); u2(); };
   }, [userProfile, role]);
 
-  // Close conv menu on outside click
   useEffect(() => {
-    const h = (e: MouseEvent) => {
-      if (convMenuRef.current && !convMenuRef.current.contains(e.target as Node)) {
-        setConvMenuId(null);
-      }
-    };
     const r = () => setIsMobileView(window.innerWidth <= 800);
-    document.addEventListener('mousedown', h);
     window.addEventListener('resize', r);
-    return () => { document.removeEventListener('mousedown', h); window.removeEventListener('resize', r); };
+    return () => window.removeEventListener('resize', r);
   }, []);
 
   useEffect(() => {
@@ -89,24 +72,17 @@ export default function MessagesPage() {
 
   useEffect(() => () => { if (unsubMsgsRef.current) unsubMsgsRef.current(); }, []);
 
-  // ── Handlers ────────────────────────────────────────────────────────────
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim() || !activeConv || !userProfile || sending) return;
     setSending(true);
-    const recipientRole = role === 'owner' ? 'tenant' : 'owner';
     try {
-      await sendMessage(activeConv.id, userProfile.id, userProfile.name, text.trim(), recipientRole);
+      await sendMessage(activeConv.id, userProfile.id, userProfile.name, text.trim(), role === 'owner' ? 'tenant' : 'owner');
       if (otherUserEmail) {
-        emailNewMessage({
-          recipientEmail: otherUserEmail,
-          recipientName: otherUserName,
-          senderName: userProfile.name,
-          propertyTitle: activeConv.propertyTitle,
-          messageText: text.trim(),
-        });
+        emailNewMessage({ recipientEmail: otherUserEmail, recipientName: otherUserName, senderName: userProfile.name, propertyTitle: activeConv.propertyTitle, messageText: text.trim() });
       }
       setText('');
+      textareaRef.current?.focus();
     } catch (err: any) {
       show(err.message || 'Failed to send', 'error');
     } finally {
@@ -115,392 +91,424 @@ export default function MessagesPage() {
   };
 
   const handleDeleteMessage = async (msgId: string) => {
-    if (!confirm('Are you sure you want to delete this message? This cannot be undone.')) return;
-    try {
-      await deleteMessage(msgId);
-      // No need to show toast, it updates in real-time
-    } catch {
-      show('Failed to delete message.', 'error');
-    }
+    if (!confirm('Delete this message? This cannot be undone.')) return;
+    try { await deleteMessage(msgId); }
+    catch { show('Failed to delete message.', 'error'); }
   };
 
   const handleArchive = async (conv: Conversation) => {
     await archiveConversation(conv.id, role);
-    setConvMenuId(null);
     if (activeConv?.id === conv.id) setActiveConv(null);
     show('Conversation archived.');
   };
 
   const handleUnarchive = async (conv: Conversation) => {
     await unarchiveConversation(conv.id, role);
-    setConvMenuId(null);
     show('Conversation restored to inbox.');
   };
 
   const handleDeleteConversation = async (conv: Conversation) => {
-    if (!confirm('Are you sure you want to PERMANENTLY delete this entire conversation and all messages for BOTH parties?')) return;
+    if (!confirm('Permanently delete this entire conversation for both parties?')) return;
     try {
       await deleteConversation(conv.id);
-      setConvMenuId(null);
       if (activeConv?.id === conv.id) setActiveConv(null);
       show('Conversation deleted.');
-    } catch {
-      show('Failed to delete conversation.', 'error');
-    }
+    } catch { show('Failed to delete.', 'error'); }
   };
 
-  // ── Derived ─────────────────────────────────────────────────────────────
   const displayConvs = inbox === 'active' ? conversations : archivedConvs;
   const totalUnread = conversations.reduce((s, c) => s + (role === 'owner' ? c.unreadOwner : c.unreadTenant), 0);
 
   if (!userProfile) return null;
 
+  const showSidebar = !isMobileView || !activeConv;
+  const showChat = !isMobileView || !!activeConv;
+
   return (
-    <div className="container page" style={{ paddingBottom: 0 }}>
+    <div style={{ background: '#f2f2f2', minHeight: 'calc(100vh - 56px)' }}>
       <ToastContainer />
 
-      <div style={{ marginBottom: 20 }}>
-        <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          Messages
-          {totalUnread > 0 && <span style={S.unreadBadge}>{totalUnread}</span>}
-        </h1>
-        <p className="page-subtitle">Your conversations with {role === 'owner' ? 'tenants' : 'your landlord'}.</p>
+      {/* Page header */}
+      <div style={{ background: '#003580', padding: '18px 0' }}>
+        <div className="container" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <MessagesIcon size={22} color="#fff" />
+          <div>
+            <h1 style={{ color: '#fff', fontSize: '1.3rem', fontWeight: 800, letterSpacing: '-0.3px' }}>
+              Messages
+              {totalUnread > 0 && (
+                <span style={{ background: '#febb02', color: '#003580', fontSize: '0.72rem', fontWeight: 800, padding: '1px 7px', borderRadius: 10, marginLeft: 10, verticalAlign: 'middle' }}>
+                  {totalUnread}
+                </span>
+              )}
+            </h1>
+            <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.82rem', marginTop: 2 }}>
+              Conversations with {role === 'owner' ? 'tenants' : 'your landlord'}
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div style={{
-        ...S.layout,
-        gridTemplateColumns: (isMobileView && activeConv) ? '0px 1fr' : (isMobileView ? '1fr 0px' : '300px 1fr')
-      }}>
-        {/* ── Sidebar ── */}
-        <div style={{...S.sidebar, display: (isMobileView && activeConv) ? 'none' : 'flex'}}>
+      {/* Main layout */}
+      <div className="container" style={{ paddingTop: 16, paddingBottom: 40 }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: showSidebar && showChat ? '300px 1fr' : '1fr',
+          gap: 0,
+          background: '#fff',
+          border: '1px solid #e7e7e7',
+          borderRadius: 8,
+          overflow: 'hidden',
+          height: 'calc(100vh - 210px)',
+          minHeight: 500,
+          boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+        }}>
 
-          {/* Inbox / Archived toggle */}
-          <div style={{ display: 'flex', gap: 3, padding: '10px 12px', borderBottom: '1px solid var(--border)', background: '#fff' }}>
-            {(['active', 'archived'] as Inbox[]).map(tab => (
-              <button key={tab} onClick={() => setInbox(tab)}
-                style={{ flex: 1, padding: '6px 0', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: '0.78rem', fontFamily: 'var(--font-body)', fontWeight: inbox === tab ? 600 : 400, background: inbox === tab ? 'var(--terra-100)' : 'transparent', color: inbox === tab ? 'var(--terra-700)' : 'var(--text-muted)', transition: 'all 0.14s' }}>
-                {tab === 'active' ? `Inbox${totalUnread > 0 ? ` (${totalUnread})` : ''}` : `Archived${archivedConvs.length > 0 ? ` (${archivedConvs.length})` : ''}`}
-              </button>
-            ))}
-          </div>
-
-          {loading ? (
-            <div className="loading-center"><div className="spinner" /></div>
-          ) : displayConvs.length === 0 ? (
-            <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" style={{ margin: '0 auto 12px', display: 'block', opacity: 0.5 }}>
-                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-              </svg>
-              <p style={{ fontSize: '0.85rem' }}>{inbox === 'active' ? 'No conversations yet' : 'No archived conversations'}</p>
-            </div>
-          ) : (
-            displayConvs.map(conv => {
-              const unread = role === 'owner' ? conv.unreadOwner : conv.unreadTenant;
-              const isActive = activeConv?.id === conv.id;
-              const menuOpen = convMenuId === conv.id;
-
-              return (
-                <div key={conv.id} style={{ position: 'relative', margin: '4px 8px' }}>
-                  <button onClick={() => openConversation(conv)} style={{
-                    ...S.convItem,
-                    background: isActive ? 'var(--teal-light)' : 'transparent',
-                    borderRadius: 12,
-                    borderLeft: isActive ? `4px solid var(--teal)` : '4px solid transparent',
-                    boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
+          {/* ── Sidebar ── */}
+          {showSidebar && (
+            <div style={{
+              borderRight: '1px solid #e7e7e7',
+              display: 'flex', flexDirection: 'column',
+              background: '#fafafa', overflowY: 'auto',
+            }}>
+              {/* Tab bar */}
+              <div style={{ display: 'flex', borderBottom: '1px solid #e7e7e7', background: '#fff' }}>
+                {(['active', 'archived'] as Inbox[]).map(tab => (
+                  <button key={tab} onClick={() => setInbox(tab)} style={{
+                    flex: 1, padding: '12px 0', border: 'none', cursor: 'pointer',
+                    fontFamily: 'var(--font-body)', fontSize: '0.82rem', fontWeight: 600,
+                    background: 'transparent',
+                    color: inbox === tab ? '#003580' : '#737373',
+                    borderBottom: inbox === tab ? '2px solid #003580' : '2px solid transparent',
+                    transition: 'all 0.15s',
                   }}>
-                    <div style={{...S.convAvatar, background: isActive ? 'var(--teal)' : 'var(--surface2)', color: isActive ? '#fff' : 'var(--teal)'}}>
-                      {role === 'owner' ? '👤' : '🏢'}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 }}>
-                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: isActive ? 'var(--teal-dark)' : 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {conv.propertyTitle}
-                        </div>
-                        {unread > 0 && <span style={S.unreadDot}>{unread}</span>}
-                      </div>
-                      <div style={{ fontSize: '0.78rem', color: isActive ? 'var(--teal)' : 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2, opacity: 0.8 }}>
-                        {conv.lastMessage || 'No messages yet'}
-                      </div>
-                    </div>
+                    {tab === 'active'
+                      ? `Inbox${totalUnread > 0 ? ` (${totalUnread})` : ''}`
+                      : `Archived${archivedConvs.length > 0 ? ` (${archivedConvs.length})` : ''}`
+                    }
                   </button>
-
-                  <button
-                    onClick={e => { e.stopPropagation(); setConvMenuId(menuOpen ? null : conv.id); }}
-                    style={{ position: 'absolute', top: '50%', right: 12, transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 6, color: 'var(--text-muted)', fontSize: '1rem', lineHeight: 1, opacity: isActive || menuOpen ? 1 : 0, transition: 'opacity 0.15s', backdropFilter: 'blur(4px)' }}
-                    className="conv-menu-btn"
-                  >
-                    ⋯
-                  </button>
-
-                  {menuOpen && (
-                    <div ref={convMenuRef} style={S.convDropdown}>
-                      {inbox === 'active' ? (
-                        <button style={S.menuItem} onClick={() => handleArchive(conv)}>
-                          <span>📦</span> Archive
-                        </button>
-                      ) : (
-                        <button style={S.menuItem} onClick={() => handleUnarchive(conv)}>
-                          <span>📥</span> Restore
-                        </button>
-                      )}
-                      <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
-                      <button style={{ ...S.menuItem, color: '#ef4444' }} onClick={() => handleDeleteConversation(conv)}>
-                        <span>🗑</span> Delete for everyone
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* ── Chat pane ── */}
-        <div style={S.chatPane}>
-          {!activeConv ? (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: 'var(--text-muted)', padding: 40 }}>
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" style={{ opacity: 0.4 }}>
-                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-              </svg>
-              <p style={{ fontSize: '0.92rem' }}>Select a conversation to start chatting</p>
-            </div>
-          ) : (
-            <>
-              {/* Chat header */}
-              <div style={S.chatHeader}>
-                {isMobileView && (
-                  <button 
-                    onClick={() => setActiveConv(null)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '0 8px 0 0', color: 'var(--teal)' }}
-                  >
-                    ←
-                  </button>
-                )}
-                <div style={{ ...S.convAvatar, width: 40, height: 40, background: 'var(--teal)', color: '#fff' }}>{role === 'owner' ? '👤' : '🏢'}</div>
-                <div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.05rem', color: 'var(--teal-dark)' }}>{activeConv.propertyTitle}</div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e' }} />
-                    {role === 'owner' ? (otherUserName || 'Tenant') : (otherUserName || 'Owner')}
-                  </div>
-                </div>
-
-                {/* Header Actions */}
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                   {inbox === 'active' ? (
-                    <button onClick={() => handleArchive(activeConv)} title="Archive" style={S.headerActionBtn}>
-                      📦 <span className={isMobileView ? "hide" : ""}>Archive</span>
-                    </button>
-                  ) : (
-                    <button onClick={() => handleUnarchive(activeConv)} title="Restore" style={S.headerActionBtn}>
-                      📥 <span className={isMobileView ? "hide" : ""}>Restore</span>
-                    </button>
-                  )}
-                </div>
+                ))}
               </div>
 
-              {/* Messages area */}
-              <div style={S.messagesArea}>
-                {messages.length === 0 && (
-                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem', padding: '40px 0' }}>
-                    No messages yet — say hello! 👋
-                  </div>
-                )}
-
-                {messages.map((msg, idx) => {
-                  const isMine = msg.senderId === userProfile.id;
-                  const isHovered = hoveredMsgId === msg.id;
-                  const isDeleted = msg.deleted;
-                  
-                  // Simple Date Divider logic
-                  const prevMsg = messages[idx - 1];
-                  const showDate = !prevMsg || new Date(prevMsg.createdAt).toDateString() !== new Date(msg.createdAt).toDateString();
-
+              {loading ? (
+                <div className="loading-center"><div className="spinner" /></div>
+              ) : displayConvs.length === 0 ? (
+                <div style={{ padding: '48px 20px', textAlign: 'center', color: '#a0a0a0' }}>
+                  <MessagesIcon size={36} color="#d4d4d4" />
+                  <p style={{ fontSize: '0.84rem', marginTop: 12 }}>
+                    {inbox === 'active' ? 'No conversations yet' : 'No archived conversations'}
+                  </p>
+                </div>
+              ) : (
+                displayConvs.map(conv => {
+                  const unread = role === 'owner' ? conv.unreadOwner : conv.unreadTenant;
+                  const isActive = activeConv?.id === conv.id;
                   return (
-                    <div key={msg.id}>
-                      {showDate && (
-                        <div style={{ textAlign: 'center', margin: '24px 0 16px' }}>
-                          <span style={{ background: 'var(--surface2)', padding: '4px 12px', borderRadius: 12, fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                            {new Date(msg.createdAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                          </span>
-                        </div>
-                      )}
-                      
-                      <div
-                        style={{ display: 'flex', flexDirection: isMine ? 'row-reverse' : 'row', gap: 8, alignItems: 'flex-end', marginBottom: 6 }}
-                        onMouseEnter={() => setHoveredMsgId(msg.id)}
-                        onMouseLeave={() => setHoveredMsgId(null)}
+                    <div key={conv.id} style={{ position: 'relative', group: 'yes' } as any}>
+                      <button
+                        onClick={() => openConversation(conv)}
+                        style={{
+                          width: '100%', padding: '14px 16px',
+                          border: 'none', borderBottom: '1px solid #f0f0f0',
+                          cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start',
+                          textAlign: 'left', fontFamily: 'var(--font-body)',
+                          background: isActive ? '#eff6ff' : '#fff',
+                          borderLeft: `3px solid ${isActive ? '#0071c2' : 'transparent'}`,
+                          transition: 'all 0.12s',
+                        }}
+                        onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#f9fafb'; }}
+                        onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = '#fff'; }}
                       >
-                        <div style={{ ...S.msgAvatar, background: isMine ? 'var(--teal)' : 'var(--surface3)', color: isMine ? '#fff' : 'var(--text-secondary)', width: 24, height: 24, fontSize: '0.65rem' }}>
-                          {msg.senderName.charAt(0).toUpperCase()}
+                        {/* Avatar */}
+                        <div style={{
+                          width: 38, height: 38, borderRadius: '50%',
+                          background: isActive ? '#003580' : '#e7e7e7',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          flexShrink: 0, fontSize: '0.85rem', fontWeight: 700,
+                          color: isActive ? '#fff' : '#737373',
+                        }}>
+                          {(role === 'owner' ? conv.propertyTitle : conv.propertyTitle)?.[0]?.toUpperCase() || '?'}
                         </div>
 
-                        <div style={{ maxWidth: '75%', display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexDirection: isMine ? 'row-reverse' : 'row' }}>
-                            <div 
-                              onClick={() => setSelectedMsgId(selectedMsgId === msg.id ? null : msg.id)}
-                              style={{ 
-                              ...S.bubble, 
-                              cursor: 'pointer',
-                              background: isMine ? 'linear-gradient(135deg, var(--teal-mid) 0%, var(--teal) 100%)' : '#fff', 
-                              color: isMine ? '#fff' : 'var(--text-primary)', 
-                              borderRadius: isMine ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                              boxShadow: isMine ? '0 2px 5px rgba(29,158,117,0.15)' : '0 1px 3px rgba(0,0,0,0.08)',
-                              border: isMine ? 'none' : '1px solid var(--border)' 
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4, marginBottom: 3 }}>
+                            <span style={{
+                              fontWeight: 700, fontSize: '0.84rem',
+                              color: isActive ? '#003580' : '#1a1a1a',
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              flex: 1,
                             }}>
-                              {msg.text}
-                            </div>
-                            
-                            {isMine && (isHovered || selectedMsgId === msg.id) && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleDeleteMessage(msg.id); }}
-                                title="Delete message"
-                                style={S.msgActionBtn}
-                              >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                              </button>
+                              {conv.propertyTitle}
+                            </span>
+                            {unread > 0 && (
+                              <span style={{
+                                background: '#0071c2', color: '#fff',
+                                fontSize: '0.62rem', fontWeight: 800,
+                                padding: '1px 6px', borderRadius: 10, flexShrink: 0,
+                              }}>
+                                {unread}
+                              </span>
                             )}
                           </div>
-                          <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginTop: 2, padding: '0 4px', opacity: 0.7 }}>
-                            {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''}
-                          </div>
+                          <p style={{
+                            fontSize: '0.76rem', color: '#737373',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0,
+                          }}>
+                            {conv.lastMessage || 'No messages yet'}
+                          </p>
                         </div>
+                      </button>
+
+                      {/* Actions row — on hover */}
+                      <div style={{
+                        position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                        display: 'flex', gap: 2,
+                      }} className="conv-actions">
+                        {inbox === 'active' ? (
+                          <button onClick={e => { e.stopPropagation(); handleArchive(conv); }}
+                            title="Archive" style={S.convActionBtn}>
+                            <ArchiveIcon size={13} color="#737373" />
+                          </button>
+                        ) : (
+                          <button onClick={e => { e.stopPropagation(); handleUnarchive(conv); }}
+                            title="Restore" style={S.convActionBtn}>
+                            <ArchiveIcon size={13} color="#0071c2" />
+                          </button>
+                        )}
+                        <button onClick={e => { e.stopPropagation(); handleDeleteConversation(conv); }}
+                          title="Delete" style={{ ...S.convActionBtn }}>
+                          <TrashIcon size={13} color="#cc0000" />
+                        </button>
                       </div>
                     </div>
                   );
-                })}
-                <div ref={messagesEndRef} />
-              </div>
+                })
+              )}
+            </div>
+          )}
 
-              {/* Input — disabled for archived convs */}
-              {inbox === 'archived' ? (
-                <div style={{ ...S.inputRow, justifyContent: 'center', background: 'var(--stone-50)' }}>
-                  <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>This conversation is archived. Restore it to send messages.</span>
-                  <button className="btn btn-ghost btn-sm" onClick={() => handleUnarchive(activeConv)} style={{ marginLeft: 8 }}>Restore</button>
+          {/* ── Chat pane ── */}
+          {showChat && (
+            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#fff' }}>
+              {!activeConv ? (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, color: '#a0a0a0', padding: 40 }}>
+                  <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MessagesIcon size={28} color="#d4d4d4" />
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontWeight: 600, color: '#595959', fontSize: '0.95rem' }}>Select a conversation</p>
+                    <p style={{ fontSize: '0.82rem', marginTop: 4 }}>Choose from your inbox to start chatting</p>
+                  </div>
                 </div>
               ) : (
-                <form onSubmit={handleSend} style={S.inputRow}>
-                  <input
-                    className="form-input"
-                    value={text}
-                    onChange={e => setText(e.target.value)}
-                    placeholder="Type a message…"
-                    disabled={sending}
-                    style={{ flex: 1, borderRadius: 24, padding: '10px 18px' }}
-                    autoFocus
-                  />
-                  <button type="submit" className="btn btn-primary" disabled={!text.trim() || sending}
-                    style={{ borderRadius: 24, padding: '10px 20px' }}>
-                    {sending ? '…' : (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
-                      </svg>
+                <>
+                  {/* Chat header */}
+                  <div style={{
+                    padding: '12px 20px', borderBottom: '1px solid #e7e7e7',
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    background: '#fff', flexShrink: 0,
+                  }}>
+                    {isMobileView && (
+                      <button onClick={() => setActiveConv(null)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px 0 0', display: 'flex', alignItems: 'center', color: '#0071c2' }}>
+                        <ChevronLeftIcon size={22} color="#0071c2" />
+                      </button>
                     )}
-                  </button>
-                </form>
+                    <div style={{
+                      width: 38, height: 38, borderRadius: '50%', background: '#003580',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#fff', fontWeight: 700, fontSize: '0.9rem', flexShrink: 0,
+                    }}>
+                      {activeConv.propertyTitle?.[0]?.toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {activeConv.propertyTitle}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: '#737373', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#008009', display: 'inline-block' }} />
+                        {role === 'owner' ? (otherUserName || 'Tenant') : (otherUserName || 'Landlord')}
+                      </div>
+                    </div>
+                    {/* Header actions */}
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {inbox === 'active' ? (
+                        <button onClick={() => handleArchive(activeConv)} style={S.headerBtn} title="Archive">
+                          <ArchiveIcon size={15} color="#737373" />
+                          {!isMobileView && <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#595959' }}>Archive</span>}
+                        </button>
+                      ) : (
+                        <button onClick={() => handleUnarchive(activeConv)} style={S.headerBtn} title="Restore">
+                          <ArchiveIcon size={15} color="#0071c2" />
+                          {!isMobileView && <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0071c2' }}>Restore</span>}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Messages area */}
+                  <div style={{
+                    flex: 1, overflowY: 'auto',
+                    padding: '20px 24px 12px',
+                    background: '#f9fafb',
+                    display: 'flex', flexDirection: 'column', gap: 2,
+                  }}>
+                    {messages.length === 0 && (
+                      <div style={{ textAlign: 'center', color: '#a0a0a0', fontSize: '0.84rem', padding: '40px 0' }}>
+                        No messages yet — say hello! 👋
+                      </div>
+                    )}
+
+                    {messages.map((msg, idx) => {
+                      const isMine = msg.senderId === userProfile.id;
+                      const prevMsg = messages[idx - 1];
+                      const showDate = !prevMsg || new Date(prevMsg.createdAt).toDateString() !== new Date(msg.createdAt).toDateString();
+
+                      return (
+                        <div key={msg.id}>
+                          {showDate && (
+                            <div style={{ textAlign: 'center', margin: '20px 0 14px' }}>
+                              <span style={{
+                                background: '#e7e7e7', padding: '3px 12px',
+                                borderRadius: 20, fontSize: '0.7rem',
+                                color: '#595959', fontWeight: 600, letterSpacing: '0.3px',
+                              }}>
+                                {new Date(msg.createdAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                              </span>
+                            </div>
+                          )}
+
+                          <div
+                            style={{ display: 'flex', flexDirection: isMine ? 'row-reverse' : 'row', gap: 8, alignItems: 'flex-end', marginBottom: 8 }}
+                            onMouseEnter={() => setHoveredMsgId(msg.id)}
+                            onMouseLeave={() => setHoveredMsgId(null)}
+                          >
+                            {/* Avatar */}
+                            <div style={{
+                              width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                              background: isMine ? '#003580' : '#e7e7e7',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: '0.65rem', fontWeight: 700,
+                              color: isMine ? '#fff' : '#595959',
+                            }}>
+                              {msg.senderName.charAt(0).toUpperCase()}
+                            </div>
+
+                            <div style={{ maxWidth: '72%', display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start', gap: 3 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexDirection: isMine ? 'row-reverse' : 'row' }}>
+                                {/* Bubble */}
+                                <div style={{
+                                  padding: '9px 14px', fontSize: '0.88rem', lineHeight: 1.5,
+                                  borderRadius: isMine ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                                  background: isMine ? '#003580' : '#fff',
+                                  color: isMine ? '#fff' : '#1a1a1a',
+                                  boxShadow: isMine ? '0 1px 4px rgba(0,53,128,0.2)' : '0 1px 3px rgba(0,0,0,0.06)',
+                                  border: isMine ? 'none' : '1px solid #e7e7e7',
+                                  wordBreak: 'break-word',
+                                }}>
+                                  {msg.text}
+                                </div>
+
+                                {/* Delete button */}
+                                {isMine && hoveredMsgId === msg.id && (
+                                  <button
+                                    onClick={e => { e.stopPropagation(); handleDeleteMessage(msg.id); }}
+                                    title="Delete"
+                                    style={{
+                                      background: '#fff', border: '1px solid #e7e7e7', cursor: 'pointer',
+                                      width: 26, height: 26, borderRadius: '50%',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      color: '#cc0000', boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+                                    }}
+                                  >
+                                    <TrashIcon size={12} color="#cc0000" />
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Time */}
+                              <span style={{ fontSize: '0.62rem', color: '#a0a0a0', paddingLeft: isMine ? 0 : 4, paddingRight: isMine ? 4 : 0 }}>
+                                {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Input */}
+                  {inbox === 'archived' ? (
+                    <div style={{ padding: '14px 20px', background: '#fafafa', borderTop: '1px solid #e7e7e7', display: 'flex', alignItems: 'center', gap: 10. }}>
+                      <p style={{ fontSize: '0.82rem', color: '#737373' }}>This conversation is archived.</p>
+                      <button className="btn btn-ghost btn-sm" onClick={() => handleUnarchive(activeConv)}>Restore</button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSend} style={{
+                      padding: '12px 16px', background: '#fff',
+                      borderTop: '1px solid #e7e7e7',
+                      display: 'flex', gap: 10, alignItems: 'flex-end', flexShrink: 0,
+                    }}>
+                      <textarea
+                        ref={textareaRef}
+                        value={text}
+                        onChange={e => setText(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e); } }}
+                        placeholder="Type a message…"
+                        disabled={sending}
+                        rows={1}
+                        style={{
+                          flex: 1, resize: 'none', border: '1.5px solid #e7e7e7',
+                          borderRadius: 20, padding: '9px 16px',
+                          fontFamily: 'var(--font-body)', fontSize: '0.9rem',
+                          color: '#1a1a1a', outline: 'none', lineHeight: 1.5,
+                          transition: 'border-color 0.15s', minHeight: 40, maxHeight: 120,
+                          background: '#fafafa',
+                        }}
+                        onFocus={e => (e.target.style.borderColor = '#0071c2')}
+                        onBlur={e => (e.target.style.borderColor = '#e7e7e7')}
+                        autoFocus
+                      />
+                      <button
+                        type="submit"
+                        disabled={!text.trim() || sending}
+                        style={{
+                          width: 40, height: 40, borderRadius: '50%', border: 'none',
+                          background: text.trim() ? '#0071c2' : '#e7e7e7',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: text.trim() ? 'pointer' : 'not-allowed',
+                          transition: 'all 0.15s', flexShrink: 0,
+                          boxShadow: text.trim() ? '0 2px 8px rgba(0,113,194,0.3)' : 'none',
+                        }}
+                      >
+                        <SendIcon size={16} color={text.trim() ? '#fff' : '#a0a0a0'} />
+                      </button>
+                    </form>
+                  )}
+                </>
               )}
-            </>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Hover hint — shown briefly to new users */}
       <style>{`
-        .conv-menu-btn { opacity: 0 !important; }
-        div:hover > .conv-menu-btn { opacity: 1 !important; }
+        .conv-actions { opacity: 0; transition: opacity 0.15s; }
+        div:hover > .conv-actions { opacity: 1; }
       `}</style>
     </div>
   );
 }
 
 const S: Record<string, React.CSSProperties> = {
-  layout: {
-    display: 'grid',
-    gridTemplateColumns: '300px 1fr',
-    gap: 0,
-    background: '#fff',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-lg)',
-    overflow: 'hidden',
-    height: 'calc(100vh - 210px)',
-    minHeight: 480,
-    boxShadow: 'var(--shadow)',
+  convActionBtn: {
+    background: '#fff', border: '1px solid #e7e7e7', cursor: 'pointer',
+    width: 26, height: 26, borderRadius: 6, display: 'flex',
+    alignItems: 'center', justifyContent: 'center', transition: 'all 0.12s',
   },
-  sidebar: {
-    borderRight: '1px solid var(--border)',
-    overflowY: 'auto' as const,
-    background: 'var(--surface)',
-    display: 'flex',
-    flexDirection: 'column' as const,
-  },
-  convItem: {
-    width: '100%', padding: '13px 16px', border: 'none',
-    cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'flex-start',
-    transition: 'background 0.15s', textAlign: 'left' as const,
-    fontFamily: 'var(--font-body)', borderBottom: '1px solid var(--border)',
-  },
-  convAvatar: {
-    width: 36, height: 36, borderRadius: '50%',
-    background: 'var(--terra-100)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: '1.1rem', flexShrink: 0,
-  },
-  convDropdown: {
-    position: 'absolute' as const, right: 8, top: '100%', zIndex: 50,
-    background: '#fff', border: '1px solid var(--border)',
-    borderRadius: 10, boxShadow: 'var(--shadow-lg)',
-    minWidth: 200, padding: '4px 0',
-  },
-  menuItem: {
-    width: '100%', padding: '10px 16px', border: 'none', background: 'none',
-    cursor: 'pointer', textAlign: 'left' as const, fontSize: '0.88rem',
-    color: 'var(--text-secondary)', fontFamily: 'var(--font-body)',
-    display: 'flex', alignItems: 'center', gap: 8, transition: 'background 0.12s',
-  },
-  chatPane: {
-    display: 'flex', flexDirection: 'column' as const, overflow: 'hidden',
-  },
-  chatHeader: {
-    padding: '14px 20px', borderBottom: '1px solid var(--border)',
-    display: 'flex', alignItems: 'center', gap: 12, background: '#fff', flexShrink: 0,
-  },
-  messagesArea: {
-    flex: 1, overflowY: 'auto' as const,
-    padding: '20px 20px 8px',
-    background: 'var(--surface)',
-  },
-  inputRow: {
-    display: 'flex', gap: 10, padding: '14px 20px',
-    background: '#fff', borderTop: '1px solid var(--border)',
-    alignItems: 'center', flexShrink: 0,
-  },
-  bubble: {
-    padding: '10px 14px', fontSize: '0.9rem', lineHeight: 1.5,
-    boxShadow: '0 1px 3px rgba(44,28,8,0.06)',
-  },
-  msgAvatar: {
-    width: 28, height: 28, borderRadius: '50%',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: '0.75rem', fontWeight: 600, flexShrink: 0,
-  },
-  unreadBadge: {
-    background: '#ef4444', color: '#fff', fontSize: '0.78rem',
-    fontWeight: 600, padding: '2px 8px', borderRadius: 20,
-  },
-  unreadDot: {
-    background: '#ef4444', color: '#fff', fontSize: '0.65rem',
-    fontWeight: 700, padding: '1px 6px', borderRadius: 20, flexShrink: 0,
-  },
-  headerActionBtn: {
-    background: '#fff', border: '1px solid var(--border)', borderRadius: 10,
-    cursor: 'pointer', padding: '8px 14px', fontSize: '0.82rem', fontWeight: 600,
-    color: 'var(--text-secondary)', fontFamily: 'var(--font-body)',
-    display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.15s',
-  },
-  msgActionBtn: {
-    background: 'rgba(255,255,255,0.9)', border: 'none', cursor: 'pointer',
-    width: 28, height: 28, borderRadius: '50%', display: 'flex',
-    alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)',
-    boxShadow: '0 2px 6px rgba(0,0,0,0.1)', transition: 'all 0.12s',
+  headerBtn: {
+    background: '#f5f5f5', border: '1px solid #e7e7e7', borderRadius: 6,
+    cursor: 'pointer', padding: '6px 12px', display: 'flex', alignItems: 'center',
+    gap: 6, transition: 'all 0.15s', fontFamily: 'var(--font-body)',
   },
 };

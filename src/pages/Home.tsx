@@ -80,98 +80,107 @@ export default function Home() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
 
   return (
-    <div>
-      {/* ── Hero ── */}
+    <div style={{ background: '#f2f2f2', minHeight: '100vh' }}>
+
+      {/* ── Hero / Search ───────────────────────────────────────────── */}
       <section style={S.hero}>
         <div style={S.heroInner}>
-          <span style={S.badge}>{t('longTermRentals')}</span>
           <h1 style={S.heroTitle}>{t('heroTitle')}</h1>
           <p style={S.heroSub}>{t('heroSub')}</p>
 
-          {/* Search bar */}
-          <div style={S.searchRow}>
-            <div style={S.searchBox}>
-              <PinIcon />
-              <input
-                style={S.searchInput}
-                placeholder={t('searchLocation')}
-                value={filters.location}
-                onChange={e => sf({ location: e.target.value })}
-                onKeyDown={e => e.key === 'Enter' && applyFilters()}
-              />
-              {filters.location && (
-                <button onClick={() => sf({ location: '' })} style={S.clearX}>✕</button>
-              )}
-            </div>
-            <button className="btn btn-primary" onClick={applyFilters} style={{ borderRadius: 10, height: 46 }}>
-              {t('search')}
-            </button>
-            <button
-              onClick={() => setShowFilters(o => !o)}
-              style={{ ...S.filterToggleBtn, ...(showFilters ? S.filterToggleBtnActive : {}) }}
-            >
-              <FilterIcon />
-              {t('filters')}
-              {hasFilters && <span style={S.filterDot} />}
-            </button>
-          </div>
+          {/* Search bar — booking.com style */}
+          <div style={S.searchCard}>
+            <div style={S.searchRow}>
+              <div style={S.searchField}>
+                <span style={S.searchIcon}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0071c2" strokeWidth="2.5">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                </span>
+                <input
+                  style={S.searchInput}
+                  placeholder={t('searchLocation') || 'Where are you going?'}
+                  value={filters.location}
+                  onChange={e => sf({ location: e.target.value })}
+                  onKeyDown={e => e.key === 'Enter' && applyFilters()}
+                />
+                {filters.location && (
+                  <button onClick={() => sf({ location: '' })} style={S.clearX}>✕</button>
+                )}
+              </div>
 
-          {/* Expanded filter panel */}
-          {showFilters && (
-            <div style={S.filterPanel}>
-              <div style={S.filterGrid}>
-                {/* Category */}
-                <div className="form-group">
-                  <label className="form-label" style={S.filterLabel}>{t('category')}</label>
-                  <select className="form-input" value={filters.category}
-                    onChange={e => sf({ category: e.target.value, type: '', subcategory: '' })}>
-                    <option value="">{t('anyCategory')}</option>
-                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                {/* Type */}
-                <div className="form-group">
-                  <label className="form-label" style={S.filterLabel}>{t('type')}</label>
-                  <select className="form-input" value={filters.type} disabled={!filters.category}
-                    onChange={e => sf({ type: e.target.value, subcategory: '' })}>
-                    <option value="">{t('anyType')}</option>
-                    {types.map(t2 => <option key={t2} value={t2}>{t2}</option>)}
-                  </select>
-                </div>
-                {/* Subcategory */}
-                <div className="form-group">
-                  <label className="form-label" style={S.filterLabel}>{t('subcategory')}</label>
-                  <select className="form-input" value={filters.subcategory} disabled={!filters.type}
-                    onChange={e => sf({ subcategory: e.target.value })}>
-                    <option value="">{t('anySubcategory')}</option>
-                    {subcategories.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                {/* Min price */}
-                <div className="form-group">
-                  <label className="form-label" style={S.filterLabel}>{t('minPrice')}</label>
-                  <input type="number" className="form-input" placeholder={`${getCurrencySymbol(defaultCurrency)}0`}
-                    value={filters.minPrice || ''}
-                    onChange={e => sf({ minPrice: Number(e.target.value) })} />
-                </div>
-                {/* Max price */}
-                <div className="form-group">
-                  <label className="form-label" style={S.filterLabel}>{t('maxPrice')}</label>
-                  <input type="number" className="form-input" placeholder="Any"
-                    value={filters.maxPrice || ''}
-                    onChange={e => sf({ maxPrice: Number(e.target.value) })} />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-                <button className="btn btn-primary" onClick={applyFilters}>{t('applyFilters')}</button>
-                <button onClick={resetFilters} style={S.resetBtn}>{t('reset')}</button>
-              </div>
+              <button
+                onClick={() => setShowFilters(o => !o)}
+                style={{ ...S.filtersBtn, ...(showFilters ? S.filtersBtnActive : {}) }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="4" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="16" y2="12" /><line x1="11" y1="18" x2="13" y2="18" />
+                </svg>
+                {t('filters')}
+                {hasFilters && <span style={S.filterDot} />}
+              </button>
+
+              <button onClick={applyFilters} style={S.searchBtn}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                {t('search')}
+              </button>
             </div>
-          )}
+
+            {/* Expanded filters */}
+            {showFilters && (
+              <div style={S.filterPanel}>
+                <div style={S.filterGrid}>
+                  <div className="form-group">
+                    <label className="form-label">{t('category')}</label>
+                    <select className="form-input" value={filters.category}
+                      onChange={e => sf({ category: e.target.value, type: '', subcategory: '' })}>
+                      <option value="">{t('anyCategory')}</option>
+                      {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">{t('type')}</label>
+                    <select className="form-input" value={filters.type} disabled={!filters.category}
+                      onChange={e => sf({ type: e.target.value, subcategory: '' })}>
+                      <option value="">{t('anyType')}</option>
+                      {types.map(t2 => <option key={t2} value={t2}>{t2}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">{t('subcategory')}</label>
+                    <select className="form-input" value={filters.subcategory} disabled={!filters.type}
+                      onChange={e => sf({ subcategory: e.target.value })}>
+                      <option value="">{t('anySubcategory')}</option>
+                      {subcategories.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">{t('minPrice')}</label>
+                    <input type="number" className="form-input" placeholder={`${getCurrencySymbol(defaultCurrency)}0`}
+                      value={filters.minPrice || ''}
+                      onChange={e => sf({ minPrice: Number(e.target.value) })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">{t('maxPrice')}</label>
+                    <input type="number" className="form-input" placeholder="Any"
+                      value={filters.maxPrice || ''}
+                      onChange={e => sf({ maxPrice: Number(e.target.value) })} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                  <button className="btn btn-primary" style={{ borderRadius: 4 }} onClick={applyFilters}>{t('applyFilters')}</button>
+                  <button onClick={resetFilters} style={S.resetBtn}>{t('reset')}</button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
-      {/* ── Stats strip ── */}
+      {/* ── Stats strip ─────────────────────────────────────────────── */}
       <div style={S.statsStrip}>
         <div style={S.statsInner}>
           <StatPill icon="🏠" label="Apartments" count={all.filter(p => (p as any).type === 'Apartment').length} />
@@ -181,12 +190,14 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ── Listings ── */}
-      <div className="container" style={{ paddingTop: 40, paddingBottom: 80 }}>
+      {/* ── Listings ────────────────────────────────────────────────── */}
+      <div className="container" style={{ paddingTop: 28, paddingBottom: 80 }}>
+
+        {/* Header row */}
         <div style={S.listingHeader}>
           <div>
             <h2 style={S.listingTitle}>{t('availableProperties')}</h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: 4 }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: 3 }}>
               {filtered.length} {filtered.length === 1 ? t('propertyFound') : t('propertiesFound')}
             </p>
           </div>
@@ -213,9 +224,9 @@ export default function Home() {
           <div className="loading-center"><div className="spinner" /></div>
         ) : filtered.length === 0 ? (
           <div className="empty-state">
-            <div style={{ fontSize: '3rem', marginBottom: 12 }}>🏚</div>
+            <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>🏚</div>
             <h3>{t('noProperties')}</h3>
-            <p style={{ marginTop: 8 }}>Try adjusting or clearing your filters</p>
+            <p style={{ marginTop: 8, fontSize: '0.9rem' }}>Try adjusting or clearing your filters</p>
             {hasFilters && (
               <button className="btn btn-primary" style={{ marginTop: 20 }} onClick={resetFilters}>
                 {t('clearFilters')}
@@ -224,42 +235,28 @@ export default function Home() {
           </div>
         ) : (
           <>
-            <div className="grid-3">
+            {/* Booking.com uses a stacked list layout */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {paginated.map(p => <PropertyCard key={p.id} property={p} />)}
             </div>
-            
-            {/* Pagination UI */}
+
             {totalPages > 1 && (
               <div style={S.paginationRow}>
-                <button 
-                  className="btn btn-ghost btn-sm" 
-                  disabled={page === 1} 
-                  onClick={() => setPage(p => p - 1)}
-                  style={S.pageBtn}
-                >
-                  {t('prev') || 'Prev'}
+                <button className="btn btn-ghost btn-sm" disabled={page === 1}
+                  onClick={() => setPage(p => p - 1)}>
+                  ‹ {t('prev') || 'Previous'}
                 </button>
                 <div style={S.pageNumbers}>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(num => (
-                    <button
-                      key={num}
-                      onClick={() => setPage(num)}
-                      style={{
-                        ...S.pageNum,
-                        ...(page === num ? S.pageNumActive : {})
-                      }}
-                    >
+                    <button key={num} onClick={() => setPage(num)}
+                      style={{ ...S.pageNum, ...(page === num ? S.pageNumActive : {}) }}>
                       {num}
                     </button>
                   ))}
                 </div>
-                <button 
-                  className="btn btn-ghost btn-sm" 
-                  disabled={page === totalPages} 
-                  onClick={() => setPage(p => p + 1)}
-                  style={S.pageBtn}
-                >
-                  {t('next') || 'Next'}
+                <button className="btn btn-ghost btn-sm" disabled={page === totalPages}
+                  onClick={() => setPage(p => p + 1)}>
+                  {t('next') || 'Next'} ›
                 </button>
               </div>
             )}
@@ -275,7 +272,7 @@ function StatPill({ icon, label, count }: { icon: string; label: string; count: 
   return (
     <div style={S.statPill}>
       <span>{icon}</span>
-      <span style={{ fontWeight: 500 }}>{count}</span>
+      <span style={{ fontWeight: 700, color: 'var(--blue-700)' }}>{count}</span>
       <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>{label}</span>
     </div>
   );
@@ -290,125 +287,159 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
   );
 }
 
-function PinIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" strokeWidth="2" style={{ flexShrink: 0 }}>
-      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-      <circle cx="12" cy="9" r="2.5" />
-    </svg>
-  );
-}
-
-function FilterIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <line x1="4" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="16" y2="12" /><line x1="11" y1="18" x2="13" y2="18" />
-    </svg>
-  );
-}
-
 const S: Record<string, React.CSSProperties> = {
+  /* ── Hero ─────────────────────────────────────────────────────── */
   hero: {
-    background: 'linear-gradient(135deg, #04342C 0%, #085041 55%, #0F6E56 100%)',
-    padding: 'clamp(52px, 9vw, 100px) 0 clamp(60px, 11vw, 116px)',
-    overflow: 'hidden', position: 'relative',
+    background: 'linear-gradient(180deg, #003580 0%, #0057b8 100%)',
+    padding: 'clamp(36px, 6vw, 72px) 0 clamp(56px, 9vw, 96px)',
   },
   heroInner: { maxWidth: 1200, margin: '0 auto', padding: '0 24px' },
-  badge: {
-    display: 'inline-block', background: 'rgba(255,255,255,0.1)', color: 'var(--teal-mid)',
-    fontSize: '0.72rem', fontWeight: 500, padding: '5px 14px', borderRadius: 20,
-    marginBottom: 20, border: '1px solid rgba(159,225,203,0.2)',
-    letterSpacing: '0.6px', textTransform: 'uppercase',
-  },
   heroTitle: {
-    fontFamily: 'var(--font-display)', fontSize: 'clamp(1.9rem, 5.5vw, 3.8rem)',
-    color: '#fff', lineHeight: 1.15, marginBottom: 16,
+    color: '#fff',
+    fontSize: 'clamp(1.6rem, 4.5vw, 2.8rem)',
+    fontWeight: 800,
+    lineHeight: 1.2,
+    marginBottom: 10,
+    letterSpacing: '-0.4px',
   },
   heroSub: {
-    color: 'rgba(255,255,255,0.62)', fontSize: 'clamp(0.9rem, 1.8vw, 1.05rem)',
-    maxWidth: 500, marginBottom: 36, lineHeight: 1.7,
+    color: 'rgba(255,255,255,0.78)',
+    fontSize: 'clamp(0.88rem, 1.6vw, 1rem)',
+    marginBottom: 28,
+    maxWidth: 560,
+    lineHeight: 1.6,
   },
-  searchRow: { display: 'flex', gap: 10, flexWrap: 'wrap', maxWidth: 700, alignItems: 'center' },
-  searchBox: {
+
+  /* ── Search card ──────────────────────────────────────────────── */
+  searchCard: {
+    background: '#fff',
+    borderRadius: 8,
+    padding: 8,
+    boxShadow: '0 4px 24px rgba(0,0,0,0.22)',
+    maxWidth: 900,
+    border: '2px solid #febb02',
+  },
+  searchRow: {
+    display: 'flex',
+    gap: 4,
+    flexWrap: 'wrap',
+    alignItems: 'stretch',
+  },
+  searchField: {
     display: 'flex', alignItems: 'center', gap: 8,
-    background: '#fff', borderRadius: 10, padding: '0 14px',
-    flex: 1, minWidth: 200, height: 46,
-    boxShadow: '0 4px 24px rgba(0,0,0,0.18)',
+    background: '#fff', flex: 1, minWidth: 200,
+    padding: '0 12px',
+    border: '1px solid #d4d4d4',
+    borderRadius: 4,
+    height: 46,
   },
+  searchIcon: { display: 'flex', alignItems: 'center', flexShrink: 0 },
   searchInput: {
-    border: 'none', outline: 'none', fontSize: '0.92rem',
-    color: 'var(--text-primary)', width: '100%', background: 'transparent',
-    fontFamily: 'var(--font-body)',
+    border: 'none', outline: 'none', fontSize: '0.95rem',
+    color: 'var(--text-primary)', width: '100%',
+    background: 'transparent', fontFamily: 'var(--font-body)',
+    fontWeight: 500,
   },
   clearX: {
     background: 'none', border: 'none', cursor: 'pointer',
-    color: 'var(--text-muted)', fontSize: '0.8rem', padding: '0 2px',
+    color: 'var(--text-muted)', fontSize: '0.8rem', padding: '0 2px', lineHeight: 1,
   },
-  filterToggleBtn: {
+  filtersBtn: {
     display: 'flex', alignItems: 'center', gap: 6,
-    height: 46, padding: '0 16px', borderRadius: 10, border: 'none',
-    background: 'rgba(255,255,255,0.12)', color: '#fff',
-    cursor: 'pointer', fontSize: '0.88rem', fontFamily: 'var(--font-body)',
-    position: 'relative', transition: 'background 0.15s',
+    height: 46, padding: '0 16px', borderRadius: 4,
+    border: '1px solid #d4d4d4', background: '#fff',
+    color: 'var(--text-secondary)', cursor: 'pointer',
+    fontSize: '0.88rem', fontFamily: 'var(--font-body)',
+    fontWeight: 600, position: 'relative', transition: 'all 0.15s',
   },
-  filterToggleBtnActive: { background: 'rgba(255,255,255,0.22)' },
+  filtersBtnActive: { borderColor: '#0071c2', color: '#0071c2', background: '#eff6ff' },
   filterDot: {
     position: 'absolute', top: 8, right: 8,
-    width: 7, height: 7, borderRadius: '50%',
-    background: '#4ade80',
+    width: 7, height: 7, borderRadius: '50%', background: '#008009',
+  },
+  searchBtn: {
+    display: 'flex', alignItems: 'center', gap: 8,
+    height: 46, padding: '0 24px', borderRadius: 4,
+    background: '#0071c2', color: '#fff',
+    border: 'none', cursor: 'pointer',
+    fontSize: '0.95rem', fontWeight: 700,
+    fontFamily: 'var(--font-body)',
+    transition: 'background 0.15s',
+    boxShadow: '0 1px 4px rgba(0,113,194,0.3)',
   },
   filterPanel: {
-    marginTop: 16, padding: '20px 20px 20px',
-    background: 'rgba(255,255,255,0.08)',
-    borderRadius: 14, border: '1px solid rgba(255,255,255,0.14)',
-    maxWidth: 700,
+    borderTop: '1px solid #e7e7e7',
+    marginTop: 8,
+    paddingTop: 16,
+    paddingLeft: 4,
+    paddingRight: 4,
   },
   filterGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 },
-  filterLabel: { color: 'rgba(255,255,255,0.72)' },
   resetBtn: {
-    background: 'rgba(255,255,255,0.1)', color: '#fff',
-    border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8,
-    padding: '10px 18px', cursor: 'pointer', fontSize: '0.9rem', fontFamily: 'var(--font-body)',
+    background: 'transparent', color: 'var(--text-secondary)',
+    border: '1px solid #d4d4d4', borderRadius: 4,
+    padding: '10px 18px', cursor: 'pointer',
+    fontSize: '0.9rem', fontFamily: 'var(--font-body)', fontWeight: 600,
   },
-  statsStrip: { background: '#fff', borderBottom: '1px solid var(--border)', padding: '12px 0' },
+
+  /* ── Stats strip ──────────────────────────────────────────────── */
+  statsStrip: {
+    background: '#fff',
+    borderBottom: '1px solid #e7e7e7',
+    padding: '10px 0',
+  },
   statsInner: {
     maxWidth: 1200, margin: '0 auto', padding: '0 24px',
     display: 'flex', gap: 8, overflowX: 'auto', flexWrap: 'wrap',
   },
   statPill: {
     display: 'flex', alignItems: 'center', gap: 6,
-    padding: '6px 14px', borderRadius: 20,
-    background: 'var(--surface2)', border: '1px solid var(--border)',
-    fontSize: '0.85rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap',
+    padding: '5px 14px', borderRadius: 20,
+    background: 'var(--gray-50)', border: '1px solid #e7e7e7',
+    fontSize: '0.84rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap',
   },
+
+  /* ── Listings ─────────────────────────────────────────────────── */
   listingHeader: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
-    marginBottom: 16, flexWrap: 'wrap', gap: 12,
+    display: 'flex', justifyContent: 'space-between',
+    alignItems: 'flex-end', marginBottom: 16,
+    flexWrap: 'wrap', gap: 8,
   },
   listingTitle: {
-    fontFamily: 'var(--font-display)', fontSize: 'clamp(1.4rem, 3vw, 1.8rem)', color: 'var(--text-primary)',
+    fontSize: 'clamp(1.2rem, 2.5vw, 1.5rem)',
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+    letterSpacing: '-0.2px',
   },
-  chips: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
+  chips: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   chip: {
     display: 'inline-flex', alignItems: 'center', gap: 6,
-    padding: '4px 10px', borderRadius: 20,
-    background: 'var(--teal-light)', color: 'var(--teal-dark)',
-    fontSize: '0.78rem', fontWeight: 500,
+    padding: '4px 10px', borderRadius: 4,
+    background: 'var(--blue-50)', color: 'var(--blue-700)',
+    fontSize: '0.78rem', fontWeight: 600,
+    border: '1px solid var(--blue-100)',
   },
   chipX: {
     background: 'none', border: 'none', cursor: 'pointer',
-    color: 'var(--teal)', fontSize: '0.7rem', padding: 0, lineHeight: 1,
+    color: 'var(--blue-500)', fontSize: '0.7rem', padding: 0, lineHeight: 1,
   },
-  paginationRow: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 40 },
-  pageNumbers: { display: 'flex', gap: 8 },
+
+  /* ── Pagination ───────────────────────────────────────────────── */
+  paginationRow: {
+    display: 'flex', justifyContent: 'center',
+    alignItems: 'center', gap: 12, marginTop: 36,
+  },
+  pageNumbers: { display: 'flex', gap: 6 },
   pageNum: {
-    width: 36, height: 36, borderRadius: 8, border: '1px solid var(--border)',
-    background: '#fff', color: 'var(--text-secondary)', fontSize: '0.9rem',
-    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    transition: 'all 0.15s',
+    width: 36, height: 36, borderRadius: 4,
+    border: '1px solid #d4d4d4', background: '#fff',
+    color: 'var(--text-secondary)', fontSize: '0.9rem',
+    cursor: 'pointer', display: 'flex',
+    alignItems: 'center', justifyContent: 'center',
+    transition: 'all 0.12s', fontFamily: 'var(--font-body)', fontWeight: 600,
   },
   pageNumActive: {
-    background: 'var(--teal)', color: '#fff', borderColor: 'var(--teal)', fontWeight: 600,
+    background: 'var(--blue-800)', color: '#fff',
+    borderColor: 'var(--blue-800)', fontWeight: 700,
   },
-  pageBtn: { padding: '8px 16px', borderRadius: 8 },
 };

@@ -9,7 +9,6 @@ import { getOrCreateConversation } from '../services/messageService';
 import { useAuth } from '../contexts/AuthContext';
 import { useLang } from '../contexts/LanguageContext';
 import PropertyGallery from '../components/PropertyGallery';
-import PropertyMap from '../components/PropertyMap';
 import { useSettings } from '../contexts/SettingsContext';
 import { formatCurrency } from '../utils/format';
 import type { Property, User, Unit } from '../types';
@@ -36,6 +35,7 @@ export default function PropertyDetail() {
   const [bookingMsg, setBookingMsg] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [bookingError, setBookingError] = useState('');
   const [booked, setBooked] = useState(false);
   const [panel, setPanel] = useState<PanelMode>('book');
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -93,14 +93,17 @@ export default function PropertyDetail() {
   const handleBook = async () => {
     if (!firebaseUser || !userProfile || !property) return;
     setSending(true);
+    setBookingError('');
     try {
-      await createBookingRequest({
+      const bookingData: any = {
         propertyId: property.id,
-        unitId: selectedUnit?.id,
         tenantId: userProfile.id,
         ownerId: property.ownerId,
         message: bookingMsg,
-      });
+      };
+      if (selectedUnit?.id) bookingData.unitId = selectedUnit.id;
+
+      await createBookingRequest(bookingData);
       // Pre-create conversation thread so owner can reply immediately
       await getOrCreateConversation(
         property.id,
@@ -120,8 +123,9 @@ export default function PropertyDetail() {
       }
       setBooked(true);
       setBookingMsg('');
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error('Reservation failed:', e);
+      setBookingError(e?.message || 'Reservation failed. Please try again.');
     }
     setSending(false);
   };
@@ -176,7 +180,7 @@ export default function PropertyDetail() {
 
             {
               panel === 'book' ? (
-                /* BOOKING PANEL */
+                /* RESERVATION PANEL */
                 !firebaseUser ? (
                   <div style={S.loginPrompt} >
                     <div style={S.loginPromptIcon} >🏠</div>
@@ -184,8 +188,8 @@ export default function PropertyDetail() {
                     }>
                       {t('loginToBook')}
                     </div>
-                    < p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
-                      Create an account or sign in to send a booking request for this property.
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
+                      Create an account or sign in to send a reservation request for this property.
                     </p>
                     < Link to={`/login?redirect=/property/${property.id}`} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', display: 'flex', marginBottom: 8 }}>
                       {t('signIn')}
@@ -195,10 +199,15 @@ export default function PropertyDetail() {
                     </Link>
                   </div>
                 ) : booked ? (
-                  <div style={S.successBox} >
+                  <div style={S.successBox}>
                     <div style={{ fontSize: '1.5rem', marginBottom: 8 }}>✓</div>
-                    < div style={{ fontWeight: 600 }}> {t('bookingSuccess')} </div>
-                    < p style={{ fontSize: '0.85rem', marginTop: 4, opacity: 0.8 }}> The owner will review your request shortly.</p>
+                    <div style={{ fontWeight: 600 }}>{t('bookingSuccess')}</div>
+                    <p style={{ fontSize: '0.85rem', marginTop: 4, opacity: 0.8 }}>
+                      The owner will review your request shortly.
+                    </p>
+                    <p style={{ fontSize: '0.8rem', marginTop: 8, opacity: 0.75, lineHeight: 1.5 }}>
+                      After reserving, all of the property's details — including telephone and address — are provided in your reservation confirmation and your account.
+                    </p>
                   </div>
                 ) : (
                   <>
@@ -210,7 +219,12 @@ export default function PropertyDetail() {
                       rows={4}
                       style={{ marginBottom: 12 }}
                     />
-                    < button
+                    {bookingError && (
+                      <div style={{ color: '#ef4444', fontSize: '0.82rem', marginBottom: 8, padding: '8px 12px', background: '#fef2f2', borderRadius: 8, border: '1px solid #fecaca' }}>
+                        ⚠ {bookingError}
+                      </div>
+                    )}
+                    <button
                       className="btn btn-primary"
                       style={{ width: '100%', justifyContent: 'center' }}
                       onClick={handleBook}
@@ -372,19 +386,33 @@ export default function PropertyDetail() {
                 </div>
               )}
 
-            {/* Property Map Section */}
+            {/* Property Location Section */}
             <div style={{ marginTop: 32, borderTop: '1px solid var(--border)', paddingTop: 24 }}>
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', marginBottom: 16 }}>📍 {t('propertyLocation') || 'Property Location'}</h3>
               
-              <PropertyMap 
-                lat={property.latitude} 
-                lng={property.longitude}
-                locationName={property.location}
-                height={320} 
-              />
-              
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>📍</span> {property.location}
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '24px 20px', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#1a1a1a', marginBottom: 8 }}>{property.location}</div>
+                <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: 20 }}>Open this address in your preferred maps app for exact directions.</p>
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(property.location)}`}
+                  target="_blank" rel="noreferrer"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 10,
+                    background: '#003580', color: '#fff', padding: '12px 24px',
+                    borderRadius: 8, fontWeight: 700, textDecoration: 'none',
+                    fontSize: '0.95rem', transition: 'all 0.15s',
+                    boxShadow: '0 4px 12px rgba(0,53,128,0.2)'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#00439c'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#003580'}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                  Get Directions
+                </a>
+              </div>
+
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 12, lineHeight: 1.6, padding: '10px 14px', background: 'var(--surface2)', borderRadius: 8 }}>
+                After booking, all of the property's details — including telephone and address — are provided in your booking confirmation and your account.
               </p>
             </div>
           </div>

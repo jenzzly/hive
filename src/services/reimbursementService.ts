@@ -19,14 +19,16 @@ function normalize(snap: any): ReimbursementRequest {
   } as ReimbursementRequest;
 }
 
+import { cleanData } from '../utils/db';
+
 export const createReimbursementRequest = async (
   data: Omit<ReimbursementRequest, 'id' | 'createdAt' | 'resolvedAt'>
 ): Promise<string> => {
-  const ref = await addDoc(collection(db, COL), {
+  const ref = await addDoc(collection(db, COL), cleanData({
     ...data,
     status: 'pending',
     createdAt: serverTimestamp(),
-  });
+  }));
   return ref.id;
 };
 
@@ -39,7 +41,7 @@ export const updateReimbursementStatus = async (
   if (ownerNote !== undefined) update.ownerNote = ownerNote;
   if (status === 'approved' || status === 'rejected' || status === 'paid')
     update.resolvedAt = serverTimestamp();
-  await updateDoc(doc(db, COL, id), update);
+  await updateDoc(doc(db, COL, id), cleanData(update));
 };
 
 export const getTenantReimbursements = async (tenantId: string): Promise<ReimbursementRequest[]> => {
@@ -61,7 +63,7 @@ export const getAllReimbursements = async (): Promise<ReimbursementRequest[]> =>
 };
 
 export const updateReimbursement = async (id: string, data: Partial<ReimbursementRequest>): Promise<void> => {
-  await updateDoc(doc(db, COL, id), data as any);
+  await updateDoc(doc(db, COL, id), cleanData(data as any));
 };
 
 export const deleteReimbursement = async (id: string): Promise<void> => {

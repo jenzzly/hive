@@ -20,7 +20,6 @@ import { uploadMultiple, uploadContent } from '../utils/contentsUpload';
 import { useToast } from '../hooks/useToast';
 import ContractViewer from '../components/ContractViewer';
 import PropertyTypeSelector from '../components/PropertyTypeSelector';
-import PropertyMap from '../components/PropertyMap';
 import UnitManager from '../components/UnitManager';
 import MaintenanceForm from '../components/MaintenanceForm';
 import type {
@@ -61,12 +60,11 @@ const EMPTY_FORM = {
   price: '',
   currency: 'USD' as Currency,
   location: '', amenities: '',
-  latitude: '', longitude: '',
   status: 'available' as PropertyStatus, isPublic: true,
 };
 
 // ── Badge helpers ───────────────────────────────────────────────────────
-function BookingBadge({ status }: { status: string }) {
+function ReservationBadge({ status }: { status: string }) {
   const m: Record<string, [string, string]> = {
     pending: ['#f59e0b', 'Pending'], approved: ['var(--terra-600)', 'Approved'], rejected: ['#ef4444', 'Rejected'],
   };
@@ -407,8 +405,6 @@ export default function OwnerDashboard() {
         price: Number(form.price),
         currency: form.currency,
         location: form.location,
-        latitude: form.latitude ? Number(form.latitude) : undefined,
-        longitude: form.longitude ? Number(form.longitude) : undefined,
         amenities: form.amenities.split(',').map(a => a.trim()).filter(Boolean),
         status: form.status, isPublic: form.isPublic,
         ownerId: userProfile.id, images,
@@ -440,8 +436,6 @@ export default function OwnerDashboard() {
       price: String(p.price),
       currency: (p as any).currency ?? 'USD',
       location: p.location,
-      latitude: p.latitude ? String(p.latitude) : '',
-      longitude: p.longitude ? String(p.longitude) : '',
       amenities: p.amenities.join(', '),
       status: p.status, isPublic: p.isPublic,
     });
@@ -543,18 +537,18 @@ export default function OwnerDashboard() {
     await updateBookingStatus(booking.id, status);
     if (status === 'approved') {
       await updateProperty(booking.propertyId, { status: 'occupied', isPublic: false, tenantId: booking.tenantId });
-      show('Booking approved! Property set to occupied and hidden from listings.');
+      show('Reservation approved! Property set to occupied and hidden from listings.');
     } else {
-      show('Booking rejected.');
+      show('Reservation rejected.');
     }
     await load();
   };
 
   const handleDeleteBooking = async (id: string) => {
-    if (!confirm('Delete this booking request? This cannot be undone.')) return;
+    if (!confirm('Delete this reservation request? This cannot be undone.')) return;
     try {
       await deleteBooking(id);
-      show('Booking deleted.');
+      show('Reservation deleted.');
       await load();
     } catch (err: any) {
       show(err.message || 'Failed to delete', 'error');
@@ -672,7 +666,7 @@ export default function OwnerDashboard() {
   const TABS: { key: Tab; label: string; badge?: number }[] = [
     { key: 'properties', label: '🏠 Properties' },
     { key: 'finance', label: '💰 Finance', badge: pendingPayments + pendingReimbs },
-    { key: 'bookings', label: '📋 Bookings', badge: pendingBookings },
+    { key: 'bookings', label: '📋 Reservations', badge: pendingBookings },
     { key: 'maintenance', label: '🔧 Maintenance', badge: openReqs },
     { key: 'contracts', label: '📄 Contracts' },
   ];
@@ -744,37 +738,6 @@ export default function OwnerDashboard() {
             </div>
             <div className="form-group" style={{ gridColumn: '1 / -1' }}><label className="form-label">Description</label><textarea className="form-input" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} /></div>
             
-            <div style={{ gridColumn: '1 / -1', marginTop: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <label className="form-label" style={{ margin: 0 }}>📍 Map Preview</label>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  {form.latitude && form.longitude ? '✓ Coordinates set' : 'Click the map or type an address to set location'}
-                </span>
-              </div>
-              <PropertyMap 
-                lat={form.latitude ? Number(form.latitude) : undefined} 
-                lng={form.longitude ? Number(form.longitude) : undefined}
-                locationName={form.location || undefined}
-                isPicker={true} 
-                onChange={(lat, lng) => setForm(f => ({ ...f, latitude: String(parseFloat(lat.toFixed(6))), longitude: String(parseFloat(lng.toFixed(6))) }))}
-                height={260}
-              />
-              <details style={{ marginTop: 10 }}>
-                <summary style={{ fontSize: '0.8rem', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }}>
-                  ⚙ Override with exact coordinates (optional)
-                </summary>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 10 }}>
-                  <div className="form-group">
-                    <label className="form-label">Latitude</label>
-                    <input className="form-input" type="number" step="any" value={form.latitude} onChange={e => setForm(f => ({ ...f, latitude: e.target.value }))} placeholder="-1.9441" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Longitude</label>
-                    <input className="form-input" type="number" step="any" value={form.longitude} onChange={e => setForm(f => ({ ...f, longitude: e.target.value }))} placeholder="30.0619" />
-                  </div>
-                </div>
-              </details>
-            </div>
             
             <div className="form-group" style={{ gridColumn: '1 / -1' }}><label className="form-label">Amenities (comma-separated)</label><input className="form-input" value={form.amenities} onChange={e => setForm(f => ({ ...f, amenities: e.target.value }))} placeholder="WiFi, Parking, Pool..." /></div>
             <div className="form-group">
@@ -940,8 +903,8 @@ export default function OwnerDashboard() {
         const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <SearchInput value={search} onChange={setSearch} placeholder="Search bookings by property or tenant..." />
-            {paginated.length === 0 ? <div className="empty-state"><p>No booking requests found.</p></div> : paginated.map(b => (
+            <SearchInput value={search} onChange={setSearch} placeholder="Search reservations by property or tenant..." />
+            {paginated.length === 0 ? <div className="empty-state"><p>No reservation requests found.</p></div> : paginated.map(b => (
               <div key={b.id} className="card" style={{ padding: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                   <div>
@@ -952,7 +915,7 @@ export default function OwnerDashboard() {
                     {b.message && <p style={{ fontSize: '0.85rem', marginTop: 8, fontStyle: 'italic', background: 'var(--stone-50)', padding: 10, borderRadius: 6 }}>"{b.message}"</p>}
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <BookingBadge status={b.status} />
+                    <ReservationBadge status={b.status} />
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
                       {new Date(b.createdAt).toLocaleDateString()}
                     </div>
