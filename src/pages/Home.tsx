@@ -44,24 +44,49 @@ export default function Home() {
       .finally(() => setLoading(false));
   }, []);
 
-  const applyFilters = () => {
+  useEffect(() => {
     let res = [...all];
-    if (filters.location)
-      res = res.filter(p => p.location.toLowerCase().includes(filters.location.toLowerCase()));
+
+    // Global Search (Location, Title, Description)
+    if (filters.location) {
+      const q = filters.location.toLowerCase();
+      res = res.filter(p => 
+        p.location.toLowerCase().includes(q) ||
+        p.title.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q)
+      );
+    }
+
     if (filters.category)
       res = res.filter(p => (p as any).category === filters.category);
+    
     if (filters.type)
       res = res.filter(p => (p as any).type === filters.type);
+    
     if (filters.subcategory)
       res = res.filter(p => (p as any).subcategory === filters.subcategory);
-    if (filters.minPrice > 0)
-      res = res.filter(p => p.price >= filters.minPrice);
-    if (filters.maxPrice > 0)
-      res = res.filter(p => p.price <= filters.maxPrice);
+
+    if (filters.minPrice > 0 || filters.maxPrice > 0) {
+      res = res.filter(p => {
+        // Convert property price to filter currency (defaultCurrency)
+        let priceInFilterCurrency = p.price;
+        if (p.currency !== defaultCurrency) {
+          if (p.currency === 'USD' && defaultCurrency === 'RWF') {
+            priceInFilterCurrency = p.price * 1300;
+          } else if (p.currency === 'RWF' && defaultCurrency === 'USD') {
+            priceInFilterCurrency = p.price / 1300;
+          }
+        }
+        
+        if (filters.minPrice > 0 && priceInFilterCurrency < filters.minPrice) return false;
+        if (filters.maxPrice > 0 && priceInFilterCurrency > filters.maxPrice) return false;
+        return true;
+      });
+    }
+
     setFiltered(res);
     setPage(1);
-    setShowFilters(false);
-  };
+  }, [filters, all, defaultCurrency]);
 
   const resetFilters = () => {
     setFilters({ ...EMPTY_FILTERS });
@@ -103,7 +128,7 @@ export default function Home() {
                   placeholder={t('searchLocation') || 'Where are you going?'}
                   value={filters.location}
                   onChange={e => sf({ location: e.target.value })}
-                  onKeyDown={e => e.key === 'Enter' && applyFilters()}
+                  onKeyDown={e => e.key === 'Enter' && setShowFilters(false)}
                 />
                 {filters.location && (
                   <button onClick={() => sf({ location: '' })} style={S.clearX}>✕</button>
@@ -121,10 +146,7 @@ export default function Home() {
                 {hasFilters && <span style={S.filterDot} />}
               </button>
 
-              <button onClick={applyFilters} style={S.searchBtn}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
+              <button onClick={() => setShowFilters(false)} style={S.searchBtn}>
                 {t('search')}
               </button>
             </div>
@@ -171,7 +193,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-                  <button className="btn btn-primary" style={{ borderRadius: 4 }} onClick={applyFilters}>{t('applyFilters')}</button>
+                  <button className="btn btn-primary" style={{ borderRadius: 4 }} onClick={() => setShowFilters(false)}>{t('done') || 'Done'}</button>
                   <button onClick={resetFilters} style={S.resetBtn}>{t('reset')}</button>
                 </div>
               </div>

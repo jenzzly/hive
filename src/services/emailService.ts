@@ -73,7 +73,7 @@ export const notifyOwnerContact = (
     email: ownerEmail,
   });
 
-/** Tenant submits a booking / rent request */
+/** Tenant submits a reservation / rent request */
 export const notifyOwnerBookingRequest = (
   ownerEmail: string,
   ownerName: string,
@@ -84,7 +84,7 @@ export const notifyOwnerBookingRequest = (
   send({
     timestamp: now(),
     to_name: ownerName,
-    message_preview: `Booking request for "${propertyTitle}" from ${tenantName}${message ? ': ' + message.slice(0, 100) : ''}`,
+    message_preview: `Reservation request for "${propertyTitle}" from ${tenantName}${message ? ': ' + message.slice(0, 100) : ''}`,
     sender_name: tenantName,
     email: ownerEmail,
   });

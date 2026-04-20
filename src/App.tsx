@@ -22,6 +22,7 @@ import AccountReset from './pages/AccountReset';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import TenantAnalyticsPage from './pages/TenantAnalyticsPage';
+import Company from './pages/Company';
 
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
@@ -59,6 +60,10 @@ function AppRoutes() {
           <Route path="/account_reset" element={<AccountReset />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/about" element={<Company />} />
+          <Route path="/work" element={<Company />} />
+          <Route path="/careers" element={<Company />} />
+          <Route path="/partnership" element={<Company />} />
 
 
           {/* Any logged-in user */}
