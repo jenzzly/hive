@@ -202,12 +202,12 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const drawerRef = useRef<HTMLDivElement>(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
 
   useEffect(() => {
-    const h = () => setIsMobile(window.innerWidth <= 900);
+    const h = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', h);
     return () => window.removeEventListener('resize', h);
   }, []);

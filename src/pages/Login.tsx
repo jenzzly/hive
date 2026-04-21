@@ -57,9 +57,9 @@ export default function Login() {
   };
 
   return (
-    <div style={S.page}>
+    <div className="auth-page" style={S.page}>
       {/* Left panel — branding */}
-      <div style={S.leftPanel}>
+      <div className="auth-left-panel" style={S.leftPanel}>
         <div style={S.leftInner}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 48 }}>
             <BrandLogo size={36} />
@@ -89,8 +89,8 @@ export default function Login() {
       </div>
 
       {/* Right panel — form */}
-      <div style={S.rightPanel}>
-        <div style={S.card}>
+      <div className="auth-right-panel" style={S.rightPanel}>
+        <div className="auth-card" style={S.card}>
           <h1 style={S.title}>Welcome back</h1>
           <p style={S.sub}>Sign in to your TerraViser account</p>
 

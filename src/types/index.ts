@@ -54,7 +54,7 @@ export type PropertyType =
   | 'Hybrid Property';
 
 export type PropertySubcategory = string;
-export type PropertyStatus = 'available' | 'occupied';
+export type PropertyStatus = 'available' | 'occupied' | 'archived';
 
 export interface Property {
   id: string;
@@ -89,7 +89,7 @@ export interface Unit {
   createdAt: string;
 }
 
-export type ContractStatus = 'active' | 'expired' | 'on_notice';
+export type ContractStatus = 'active' | 'expired' | 'on_notice' | 'archived';
 
 export interface Contract {
   id: string;
@@ -111,7 +111,7 @@ export interface Contract {
 }
 
 export type MaintenancePriority = 'low' | 'medium' | 'high' | 'urgent';
-export type MaintenanceStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+export type MaintenanceStatus = 'open' | 'in_progress' | 'resolved' | 'closed' | 'archived';
 
 export interface MaintenanceRequest {
   id: string;
@@ -129,7 +129,7 @@ export interface MaintenanceRequest {
   timeline?: string; // Estimated timeline, e.g. "Expected completion: Friday"
 }
 
-export type BookingStatus = 'pending' | 'approved' | 'rejected';
+export type BookingStatus = 'pending' | 'approved' | 'rejected' | 'archived';
 
 export interface BookingRequest {
   id: string;
@@ -185,7 +185,7 @@ export interface Message {
 }
 
 // ── Rent Payments ──────────────────────────────────────────────────────
-export type PaymentStatus = 'pending' | 'verified' | 'rejected';
+export type PaymentStatus = 'pending' | 'verified' | 'rejected' | 'archived';
 
 export interface RentPayment {
   id: string;
@@ -205,7 +205,7 @@ export interface RentPayment {
 }
 
 // ── Reimbursement Requests ─────────────────────────────────────────────
-export type ReimbursementStatus = 'pending' | 'approved' | 'rejected' | 'paid';
+export type ReimbursementStatus = 'pending' | 'approved' | 'rejected' | 'paid' | 'archived';
 
 export interface ReimbursementRequest {
   id: string;

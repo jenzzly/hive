@@ -18,16 +18,21 @@ export default function OwnerPublicPage() {
 
   useEffect(() => {
     if (!slug) return;
+    console.log('Fetching owner for slug:', slug);
     (async () => {
       try {
-        const u = await getUserBySlug(slug);
+        const u = await getUserBySlug(slug.toLowerCase());
+        console.log('Owner found:', u);
         if (u) {
           setOwner(u);
           const props = await getOwnerPublicProperties(u.id);
+          console.log('Properties found:', props.length);
           setProperties(props);
+        } else {
+          console.log('No owner found with this slug in Firestore.');
         }
       } catch (err) {
-        console.error(err);
+        console.error('Error fetching owner data:', err);
       } finally {
         setLoading(false);
       }
@@ -35,11 +40,23 @@ export default function OwnerPublicPage() {
   }, [slug]);
 
   if (loading) return <div className="loading-center"><div className="spinner" /></div>;
-  if (!owner || !owner.ownerSettings || !owner.ownerSettings.enabled) {
+
+  if (!owner) {
     return (
       <div className="container page" style={{ textAlign: 'center', padding: '100px 20px' }}>
         <h1 style={{ fontSize: '3rem', marginBottom: 20 }}>404</h1>
-        <p>This profile does not exist or is not public.</p>
+        <p>This profile does not exist.</p>
+        <Link to="/" className="btn btn-primary" style={{ marginTop: 20 }}>Back to Home</Link>
+      </div>
+    );
+  }
+
+  if (!owner.ownerSettings || !owner.ownerSettings.enabled) {
+    return (
+      <div className="container page" style={{ textAlign: 'center', padding: '100px 20px' }}>
+        <h1 style={{ fontSize: '3rem', marginBottom: 20 }}>🔒 Private</h1>
+        <p>This property page is currently private.</p>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 8 }}>If you are the owner, please enable it in your dashboard settings.</p>
         <Link to="/" className="btn btn-primary" style={{ marginTop: 20 }}>Back to Home</Link>
       </div>
     );
@@ -185,7 +202,7 @@ export default function OwnerPublicPage() {
     <div style={styles.wrapper}>
       {/* Header with Overlay */}
       <div style={styles.header}>
-        <div style={styles.profileBox}>
+        <div className="owner-header-box" style={styles.profileBox}>
           {ownerSettings.profileImage ? (
             <img src={ownerSettings.profileImage} style={styles.avatar} alt={ownerSettings.displayName} />
           ) : (
@@ -193,7 +210,7 @@ export default function OwnerPublicPage() {
               {ownerSettings.displayName.charAt(0)}
             </div>
           )}
-          <div style={styles.info}>
+          <div className="owner-header-info" style={styles.info}>
             <h1 style={styles.displayName}>{ownerSettings.displayName}</h1>
             <div style={{ display: 'flex', gap: 10 }}>
               <span style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', padding: '4px 12px', borderRadius: 20, fontSize: '0.8rem', backdropFilter: 'blur(5px)' }}>
@@ -208,11 +225,11 @@ export default function OwnerPublicPage() {
       </div>
 
       <div style={styles.content}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 20 }}>
+        <div className="owner-content-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 20 }}>
           <div style={styles.bio}>
             <p>{ownerSettings.bio || `Welcome to my property collection. I specialize in ${template} real estate in ${owner.location || 'the city'}.`}</p>
 
-            <div style={styles.socials}>
+            <div className="owner-socials" style={styles.socials}>
               {ownerSettings.socialLinks?.whatsapp && (
                 <a href={`https://wa.me/${ownerSettings.socialLinks.whatsapp}`} target="_blank" rel="noreferrer" style={styles.socialBtn}>
                   <WhatsAppIcon size={20} />
@@ -230,7 +247,7 @@ export default function OwnerPublicPage() {
             </div>
           </div>
 
-          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="owner-cta" style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 10 }}>
             <Link to={`/messages?ownerId=${owner.id}`} className="btn btn-primary" style={{ background: themeColor, color: '#fff', border: 'none' }}>
               Send Message
             </Link>

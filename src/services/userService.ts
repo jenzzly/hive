@@ -54,16 +54,43 @@ export const getUserById = async (userId: string): Promise<User | null> => {
 };
 
 export const getUserBySlug = async (slug: string): Promise<User | null> => {
-  const q = query(collection(db, COL), where('ownerSettings.slug', '==', slug), limit(1));
-  const snap = await getDocs(q);
-  if (snap.empty) return null;
-  const d = snap.docs[0];
-  const data = d.data();
-  return { 
-    ...data, 
-    id: d.id, 
-    photoURL: data.photoURL ? resolveFileUrl(data.photoURL) : undefined,
-    idDocumentUrl: data.idDocumentUrl ? resolveFileUrl(data.idDocumentUrl) : undefined,
-    createdAt: data.createdAt?.toDate?.()?.toISOString?.() ?? '' 
-  } as unknown as User;
+  console.log('[getUserBySlug] Requesting slug:', slug);
+  try {
+    const q = query(collection(db, COL), where('ownerSettings.slug', '==', slug), limit(1));
+    const snap = await getDocs(q);
+    console.log('[getUserBySlug] Snap size:', snap.size);
+    if (!snap.empty) {
+      const d = snap.docs[0];
+      const data = d.data();
+      return { 
+        ...data, 
+        id: d.id, 
+        photoURL: data.photoURL ? resolveFileUrl(data.photoURL) : undefined,
+        idDocumentUrl: data.idDocumentUrl ? resolveFileUrl(data.idDocumentUrl) : undefined,
+        createdAt: data.createdAt?.toDate?.()?.toISOString?.() ?? '' 
+      } as unknown as User;
+    }
+  } catch (err) {
+    console.error('[getUserBySlug] Indexed query failed:', err);
+  }
+
+  // Fallback: Fetch all users and filter in memory (useful if index is missing or path is weird)
+  console.log('[getUserBySlug] Falling back to in-memory search...');
+  const allSnap = await getDocs(collection(db, COL));
+  const foundDoc = allSnap.docs.find(d => d.data().ownerSettings?.slug === slug);
+  
+  if (foundDoc) {
+    const data = foundDoc.data();
+    console.log('[getUserBySlug] Fallback found:', foundDoc.id);
+    return { 
+      ...data, 
+      id: foundDoc.id, 
+      photoURL: data.photoURL ? resolveFileUrl(data.photoURL) : undefined,
+      idDocumentUrl: data.idDocumentUrl ? resolveFileUrl(data.idDocumentUrl) : undefined,
+      createdAt: data.createdAt?.toDate?.()?.toISOString?.() ?? '' 
+    } as unknown as User;
+  }
+
+  console.log('[getUserBySlug] Fallback found: None');
+  return null;
 };

@@ -39,12 +39,12 @@ export default function PropertyDetail() {
   const [booked, setBooked] = useState(false);
   const [panel, setPanel] = useState<PanelMode>('book');
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [units, setUnits] = useState<Unit[]>([]);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
 
   useEffect(() => {
-    const h = () => setIsMobile(window.innerWidth <= 900);
+    const h = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', h);
     return () => window.removeEventListener('resize', h);
   }, []);

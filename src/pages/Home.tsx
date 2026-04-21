@@ -115,7 +115,7 @@ export default function Home() {
 
           {/* Search bar — booking.com style */}
           <div style={S.searchCard}>
-            <div style={S.searchRow}>
+            <div className="owner-content-row" style={S.searchRow}>
               <div style={S.searchField}>
                 <span style={S.searchIcon}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0071c2" strokeWidth="2.5">
@@ -135,20 +135,22 @@ export default function Home() {
                 )}
               </div>
 
-              <button
-                onClick={() => setShowFilters(o => !o)}
-                style={{ ...S.filtersBtn, ...(showFilters ? S.filtersBtnActive : {}) }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="4" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="16" y2="12" /><line x1="11" y1="18" x2="13" y2="18" />
-                </svg>
-                {t('filters')}
-                {hasFilters && <span style={S.filterDot} />}
-              </button>
+              <div style={{ display: 'flex', gap: 4, flex: 'none' }}>
+                <button
+                  onClick={() => setShowFilters(o => !o)}
+                  style={{ ...S.filtersBtn, ...(showFilters ? S.filtersBtnActive : {}), flex: 1 }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="4" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="16" y2="12" /><line x1="11" y1="18" x2="13" y2="18" />
+                  </svg>
+                  {t('filters')}
+                  {hasFilters && <span style={S.filterDot} />}
+                </button>
 
-              <button onClick={() => setShowFilters(false)} style={S.searchBtn}>
-                {t('search')}
-              </button>
+                <button onClick={() => setShowFilters(false)} style={{ ...S.searchBtn, flex: 1 }}>
+                  {t('search')}
+                </button>
+              </div>
             </div>
 
             {/* Expanded filters */}

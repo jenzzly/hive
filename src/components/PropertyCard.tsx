@@ -43,14 +43,12 @@ export default function PropertyCard({ property, showActions, onEdit, onDelete, 
   const descShort = desc.length > 120 ? desc.slice(0, 118) + '…' : desc;
 
   return (
-    <div
+    <div className="property-card-layout"
       style={{
         background: '#fff',
         border: '1px solid #e7e7e7',
         borderRadius: 8,
         overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'row',
         boxShadow: hovered ? '0 4px 20px rgba(0,0,0,0.13)' : '0 1px 4px rgba(0,0,0,0.07)',
         transform: hovered ? 'translateY(-1px)' : 'none',
         transition: 'box-shadow 0.18s, transform 0.18s',
@@ -61,11 +59,10 @@ export default function PropertyCard({ property, showActions, onEdit, onDelete, 
       {/* ── Image: fixed 220×180, never distorted ── */}
       <Link
         to={`/property/${property.id}`}
+        className="property-card-img-wrapper"
         style={{
           display: 'block',
           position: 'relative',
-          width: 220,
-          minWidth: 220,
           height: 180,
           flexShrink: 0,
           background: '#f0f0f0',
@@ -249,15 +246,16 @@ export default function PropertyCard({ property, showActions, onEdit, onDelete, 
       </div>
 
       {/* ── Right: price + CTA ── */}
-      <div style={{
-        padding: '16px 18px',
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'flex-end', justifyContent: 'space-between',
-        borderLeft: '1px solid #f0f0f0',
-        minWidth: 155, flexShrink: 0,
-        background: '#fafafa',
-      }}>
-        <div style={{ textAlign: 'right' }}>
+      <div className="property-card-price-block"
+        style={{
+          padding: '16px 18px',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'flex-end', justifyContent: 'space-between',
+          borderLeft: '1px solid #f0f0f0',
+          minWidth: 155, flexShrink: 0,
+          background: '#fafafa',
+        }}>
+        <div className="price-top-row" style={{ textAlign: 'right' }}>
           <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1a1a1a', letterSpacing: '-0.3px', lineHeight: 1.2 }}>
             {formatCurrency(property.price, currency)}
           </div>

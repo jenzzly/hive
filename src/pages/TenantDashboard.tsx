@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getAllProperties } from '../services/propertyService';
 import { getTenantContracts, updateContract } from '../services/contractService';
-import { getTenantRequests, createMaintenanceRequest, updateMaintenanceRequest } from '../services/maintenanceService';
+import { getTenantRequests, createMaintenanceRequest, updateMaintenanceRequest, deleteMaintenanceRequest } from '../services/maintenanceService';
 import { getTenantPayments, createRentPayment, updatePayment, deletePayment } from '../services/paymentService';
 import { getTenantReimbursements, createReimbursementRequest } from '../services/reimbursementService';
 import { uploadContent, uploadMultiple } from '../utils/contentsUpload';
@@ -89,13 +89,13 @@ export default function TenantDashboard() {
       getTenantPayments(userProfile.id),
       getTenantReimbursements(userProfile.id),
     ]);
-    // Filter to properties assigned to this tenant
-    const myProps = allProps.filter(p => p.tenantId === userProfile.id);
+    // Filter to properties assigned to this tenant and not archived
+    const myProps = allProps.filter(p => p.tenantId === userProfile.id && p.status !== 'archived');
     setProperties(myProps);
-    setContracts(ctrs);
-    setRequests(reqs);
-    setPayments(pays);
-    setReimbursements(reimbs);
+    setContracts(ctrs.filter(c => (c.status as string) !== 'archived'));
+    setRequests(reqs.filter(r => (r.status as string) !== 'archived'));
+    setPayments(pays.filter(p => (p.status as string) !== 'archived'));
+    setReimbursements(reimbs.filter(r => (r.status as string) !== 'archived'));
     if (myProps.length > 0 && !selectedPropertyId) setSelectedPropertyId(myProps[0].id);
     setLoading(false);
   };
@@ -124,6 +124,18 @@ export default function TenantDashboard() {
       setRequests(updated);
     } catch (err: any) {
       show(err.message || 'Failed to submit request.', 'error');
+    }
+  };
+
+  const handleDeleteMaintenance = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this maintenance request?')) return;
+    try {
+      await deleteMaintenanceRequest(id);
+      show('Maintenance request deleted.');
+      const updated = await getTenantRequests(userProfile!.id);
+      setRequests(updated);
+    } catch (err: any) {
+      show(err.message || 'Failed to delete request.', 'error');
     }
   };
 
@@ -296,9 +308,10 @@ export default function TenantDashboard() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, background: 'var(--surface2)', borderRadius: 12, padding: 4, marginBottom: 28, overflowX: 'auto' }}>
+      <div className="dashboard-tabs" style={{ display: 'flex', gap: 4, background: 'var(--surface2)', borderRadius: 12, padding: 4, marginBottom: 28, overflowX: 'auto' }}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
+            className="dashboard-tab"
             style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 9, border: 'none', background: tab === t.key ? '#fff' : 'transparent', cursor: 'pointer', fontSize: '0.85rem', color: tab === t.key ? 'var(--teal)' : 'var(--text-secondary)', fontFamily: 'var(--font-body)', fontWeight: tab === t.key ? 600 : 400, boxShadow: tab === t.key ? 'var(--shadow)' : 'none', whiteSpace: 'nowrap' }}>
             {t.icon}
             {t.label}
@@ -519,15 +532,16 @@ export default function TenantDashboard() {
                         <span className={`badge badge-${req.priority === 'urgent' ? 'red' : req.priority === 'high' ? 'amber' : 'gray'}`}>{req.priority}</span>
                       </div>
                     </div>
-                    {req.status !== 'closed' && req.status !== 'resolved' && (
-                      <div style={{ marginTop: 8 }}>
+                    <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                      {(req.status !== 'closed' && req.status !== 'resolved') && (
                         <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', fontSize: '0.75rem' }} onClick={() => {
                           setEditingMaintenance(req);
                           setShowMaintForm(true);
                           window.scrollTo({ top: 300, behavior: 'smooth' });
-                        }}>✏️ Edit Request</button>
-                      </div>
-                    )}
+                        }}>✏️ Edit</button>
+                      )}
+                      <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', fontSize: '0.75rem', color: '#ef4444' }} onClick={() => handleDeleteMaintenance(req.id)}>🗑️ Delete</button>
+                    </div>
                     {req.timeline && (
                       <div style={{ marginTop: 8, fontSize: '0.78rem', color: 'var(--terra-600)', fontWeight: 600 }}>🛠️ Timeline: {req.timeline}</div>
                     )}

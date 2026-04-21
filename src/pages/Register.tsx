@@ -81,9 +81,9 @@ export default function Register() {
   ];
 
   return (
-    <div style={S.page}>
+    <div className="auth-page" style={S.page}>
       {/* Left branding panel */}
-      <div style={S.leftPanel}>
+      <div className="auth-left-panel" style={S.leftPanel}>
         <div style={S.leftInner}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 48 }}>
             <BrandLogo size={36} />
@@ -109,8 +109,8 @@ export default function Register() {
       </div>
 
       {/* Right form panel */}
-      <div style={S.rightPanel}>
-        <div style={S.card}>
+      <div className="auth-right-panel" style={S.rightPanel}>
+        <div className="auth-card" style={S.card}>
           <h1 style={S.title}>Create your account</h1>
           <p style={S.sub}>Join TerraViser — find or manage properties</p>
 
@@ -151,7 +151,7 @@ export default function Register() {
             {/* Role selector */}
             <div className="form-group">
               <label className="form-label">I am a…</label>
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div className="grid-2" style={{ display: 'flex', gap: 10 }}>
                 {roles.map(opt => (
                   <button
                     key={opt.role} type="button"

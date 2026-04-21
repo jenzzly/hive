@@ -55,15 +55,23 @@ export const getOwnerProperties = async (ownerId: string): Promise<Property[]> =
 };
 
 export const getOwnerPublicProperties = async (ownerId: string): Promise<Property[]> => {
+  // Must include isPublic and status in the query itself or Firestore will
+  // reject it with 'Missing or insufficient permissions' for unauthenticated users.
   const q = query(
     collection(db, COL),
     where('ownerId', '==', ownerId),
     where('isPublic', '==', true),
-    where('status', '==', 'available'),
-    orderBy('createdAt', 'desc'),
+    where('status', '==', 'available')
   );
-  const snap = await getDocs(q);
-  return snap.docs.map(normalize);
+  try {
+    const snap = await getDocs(q);
+    // Sort in memory to avoid needing a composite index
+    const props = snap.docs.map(normalize);
+    return props.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  } catch (err) {
+    console.error('[getOwnerPublicProperties] Error:', err);
+    throw err;
+  }
 };
 
 // ─── tenant ─────────────────────────────────────────────────────────
@@ -98,4 +106,28 @@ export const updateProperty = async (id: string, data: Partial<Property>): Promi
 
 export const deleteProperty = async (id: string): Promise<void> => {
   await deleteDoc(doc(db, COL, id));
+};
+
+export const archiveProperty = async (propertyId: string): Promise<void> => {
+  // 1. Archive the property itself
+  await updateDoc(doc(db, COL, propertyId), { status: 'archived' });
+
+  // 2. Define related collections
+  const relatedCols = [
+    'units',
+    'maintenanceRequests',
+    'bookings',
+    'contracts',
+    'rentPayments',
+    'reimbursementRequests'
+  ];
+
+  // 3. Batch archive related items (for simplicity without complex batch logic, 
+  // we'll fetch and update. In a real large scale app, this would be a cloud function)
+  for (const colName of relatedCols) {
+    const q = query(collection(db, colName), where('propertyId', '==', propertyId));
+    const snap = await getDocs(q);
+    const promises = snap.docs.map(d => updateDoc(doc(db, colName, d.id), { status: 'archived' }));
+    await Promise.all(promises);
+  }
 };

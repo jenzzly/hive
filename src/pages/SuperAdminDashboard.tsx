@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getAllUsers, updateUserRole, deleteUserDoc, updateUserProfile } from '../services/userService';
-import { getAllProperties, deleteProperty, updateProperty, createProperty } from '../services/propertyService';
+import { getAllProperties, deleteProperty, updateProperty, createProperty, archiveProperty } from '../services/propertyService';
 import { getPropertyUnits, deleteUnit } from '../services/unitService';
 import { getAllPayments, updatePaymentStatus, deletePayment, updatePayment, createRentPayment } from '../services/paymentService';
 import { getAllReimbursements, updateReimbursementStatus, deleteReimbursement, updateReimbursement, createReimbursementRequest } from '../services/reimbursementService';
@@ -219,15 +219,28 @@ export default function SuperAdminDashboard() {
   };
 
   const handleDeleteProperty = async (id: string) => {
-    if (!confirm('Delete this property? All associated units will also be deleted.')) return;
+    const property = properties.find(p => p.id === id);
+    if (!property) return;
+
+    const isArchived = property.status === 'archived';
+
+    if (isArchived) {
+      if (!confirm('PERMANENT DELETE: This will permanently remove this archived property and all its historical records (payments, maintenance, etc). This cannot be undone. Continue?')) return;
+      try {
+        await deleteProperty(id);
+        show('Property permanently deleted.');
+        await load();
+      } catch (err) { show('Failed to delete.', 'error'); }
+      return;
+    }
+
+    if (!confirm('Archive this property and all its related records? This will hide it from the marketplace while keeping the historical data.')) return;
     try {
-      const units = await getPropertyUnits(id);
-      await Promise.all(units.map(u => deleteUnit(u.id)));
-      await deleteProperty(id);
-      show('Property and units deleted.');
+      await archiveProperty(id);
+      show('Property archived.');
       await load();
     } catch (err: any) {
-      show('Failed to delete property.', 'error');
+      show('Failed to archive property.', 'error');
     }
   };
 
@@ -575,13 +588,25 @@ export default function SuperAdminDashboard() {
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.location}</div>
                         </td>
                         <td style={MS.td}><span style={{ fontWeight: 600 }}>{formatCurrency(p.price, p.currency)}</span></td>
-                        <td style={MS.td}><span className={`badge ${p.status === 'available' ? 'badge-green' : 'badge-amber'}`}>{p.status}</span></td>
+                        <td style={MS.td}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span className={`badge ${p.status === 'available' ? 'badge-green' : p.status === 'archived' ? 'badge-gray' : 'badge-amber'}`}>
+                              {p.status}
+                            </span>
+                          </div>
+                        </td>
                         <td style={MS.td}><span style={{ fontSize: '0.82rem', fontFamily: 'monospace' }}>{p.ownerId.slice(0, 8)}…</span></td>
                         <td style={MS.td}>
                           <div style={{ display: 'flex', gap: 6 }}>
                             <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }} onClick={() => window.open(`/property/${p.id}`, '_blank')} title="View Public Page">👁️</button>
                             <button className="btn btn-secondary btn-sm" onClick={() => setEditingProperty(p)}>Edit</button>
-                            <button className="btn btn-danger btn-sm" onClick={() => handleDeleteProperty(p.id)}>Delete</button>
+                            <button 
+                              className={p.status === 'archived' ? 'btn btn-danger btn-sm' : 'btn btn-ghost btn-danger btn-sm'} 
+                              onClick={() => handleDeleteProperty(p.id)}
+                              title={p.status === 'archived' ? 'Permanently Delete' : 'Archive'}
+                            >
+                              {p.status === 'archived' ? 'Delete' : 'Archive'}
+                            </button>
                           </div>
                         </td>
                       </tr>

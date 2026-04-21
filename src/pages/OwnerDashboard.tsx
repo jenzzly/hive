@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
-import { getOwnerProperties, createProperty, updateProperty, deleteProperty } from '../services/propertyService';
+import { getOwnerProperties, createProperty, updateProperty, deleteProperty, archiveProperty } from '../services/propertyService';
 import { getOwnerContracts, createContract, deleteContract, updateContract } from '../services/contractService';
 import { getOwnerRequests, updateMaintenanceRequest } from '../services/maintenanceService';
 import { getOwnerBookings, updateBookingStatus, deleteBooking } from '../services/bookingService';
@@ -338,7 +338,7 @@ export default function OwnerDashboard() {
   const [loading, setLoading] = useState(true);
 
   // Public Page State
-  const [ownerSettings, setOwnerSettings] = useState(userProfile?.ownerSettings || {
+  const [ownerSettings, setOwnerSettings] = useState({
     enabled: false,
     slug: '',
     displayName: userProfile?.name || '',
@@ -347,6 +347,7 @@ export default function OwnerDashboard() {
     socialLinks: { whatsapp: '', facebook: '', instagram: '', twitter: '', website: '' },
     fontFamily: 'Inter',
     primaryColor: '#3b82f6',
+    ...(userProfile?.ownerSettings || {})
   });
   const [savingSettings, setSavingSettings] = useState(false);
 
@@ -460,18 +461,37 @@ export default function OwnerDashboard() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this property? All associated units will also be deleted.')) return;
-    try {
-      // Cleanup units first
-      const units = await getPropertyUnits(id);
-      await Promise.all(units.map(u => deleteUnit(u.id)));
+    const property = properties.find(p => p.id === id);
+    if (!property) return;
+
+    const isArchived = property.status === 'archived';
+    const isSuperAdmin = userProfile?.role === 'superAdmin';
+
+    if (isArchived) {
+      if (!isSuperAdmin) {
+        show('Only a Super Admin can permanently delete archived properties.', 'error');
+        return;
+      }
+      if (!confirm('PERMANENT DELETE: This will permanently remove this archived property and all its historical records (payments, maintenance, etc). This cannot be undone. Continue?')) return;
       
-      // Delete property
-      await deleteProperty(id);
-      show('Property and units deleted.');
+      try {
+        await deleteProperty(id);
+        show('Property permanently deleted.');
+        await load();
+      } catch (err) { show('Failed to delete.', 'error'); }
+      return;
+    }
+
+    // Standard archive flow for non-archived properties
+    const warnMsg = 'Archive this property? This will also archive all related units, contracts, payments, maintenance requests, and bookings. Archived properties are hidden from the marketplace but kept for your records. Continue?';
+    if (!confirm(warnMsg)) return;
+
+    try {
+      await archiveProperty(id);
+      show('Property and all related data archived.');
       await load();
     } catch (err: any) {
-      show('Failed to delete property.', 'error');
+      show('Failed to archive property.', 'error');
     }
   };
 
