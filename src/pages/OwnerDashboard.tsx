@@ -22,6 +22,10 @@ import ContractViewer from '../components/ContractViewer';
 import PropertyTypeSelector from '../components/PropertyTypeSelector';
 import UnitManager from '../components/UnitManager';
 import MaintenanceForm from '../components/MaintenanceForm';
+import { 
+  HomeIcon, WalletIcon, CalendarIcon, 
+  ToolsIcon, FileIcon, ChartIcon 
+} from '../components/Icons';
 import type {
   Property, Contract, MaintenanceRequest, PropertyStatus,
   BookingRequest, RentPayment, ReimbursementRequest, PropertyCategory,
@@ -29,7 +33,7 @@ import type {
 } from '../types';
 import { formatCurrency } from '../utils/format';
 
-type Tab = 'properties' | 'finance' | 'maintenance' | 'bookings' | 'contracts';
+type Tab = 'properties' | 'finance' | 'maintenance' | 'bookings' | 'contracts' | 'public-page';
 const CURRENCIES: Currency[] = ['USD', 'RWF'];
 
 // ── Currency toggle button pair ────────────────────────────────────────
@@ -318,7 +322,7 @@ function PropertyFinanceCard({
 
 // ── Main Dashboard ──────────────────────────────────────────────────────
 export default function OwnerDashboard() {
-  const { userProfile } = useAuth();
+  const { userProfile, updateProfile } = useAuth();
   const { show, ToastContainer } = useToast();
   const { defaultCurrency } = useSettings();
   const navigate = useNavigate();
@@ -332,6 +336,19 @@ export default function OwnerDashboard() {
   const [reimbursements, setReimbursements] = useState<ReimbursementRequest[]>([]);
   const [allTenants, setAllTenants] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Public Page State
+  const [ownerSettings, setOwnerSettings] = useState(userProfile?.ownerSettings || {
+    enabled: false,
+    slug: '',
+    displayName: userProfile?.name || '',
+    bio: '',
+    template: 'both' as const,
+    socialLinks: { whatsapp: '', facebook: '', instagram: '', twitter: '', website: '' },
+    fontFamily: 'Inter',
+    primaryColor: '#3b82f6',
+  });
+  const [savingSettings, setSavingSettings] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -663,12 +680,13 @@ export default function OwnerDashboard() {
   const totalDeposits = contracts.reduce((s, c) => s + (c.depositAmount ?? 0), 0);
   const totalRepairs = requests.filter(r => r.repairCost).reduce((s, r) => s + (r.repairCost ?? 0), 0);
 
-  const TABS: { key: Tab; label: string; badge?: number }[] = [
-    { key: 'properties', label: '🏠 Properties' },
-    { key: 'finance', label: '💰 Finance', badge: pendingPayments + pendingReimbs },
-    { key: 'bookings', label: '📋 Reservations', badge: pendingBookings },
-    { key: 'maintenance', label: '🔧 Maintenance', badge: openReqs },
-    { key: 'contracts', label: '📄 Contracts' },
+  const TABS: { key: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
+    { key: 'properties', label: 'Properties', icon: <HomeIcon size={16} /> },
+    { key: 'finance', label: 'Finance', icon: <WalletIcon size={16} />, badge: pendingPayments + pendingReimbs },
+    { key: 'bookings', label: 'Reservations', icon: <CalendarIcon size={16} />, badge: pendingBookings },
+    { key: 'maintenance', label: 'Maintenance', icon: <ToolsIcon size={16} />, badge: openReqs },
+    { key: 'contracts', label: 'Contracts', icon: <FileIcon size={16} /> },
+    { key: 'public-page', label: 'Public Page', icon: <ChartIcon size={16} /> },
   ];
 
   if (!userProfile) return null;
@@ -679,7 +697,7 @@ export default function OwnerDashboard() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 className="page-subtitle">Owner : {userProfile.name}</h1>
+          <h1 className="page-subtitle" style={{ textTransform: 'capitalize' }}>{TABS.find(t => t.key === tab)?.label || tab}</h1>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-ghost btn-sm" onClick={() => { setShowContractForm(true); setShowForm(false); }}>+ Contract</button>
@@ -710,7 +728,8 @@ export default function OwnerDashboard() {
       <div style={{ display: 'flex', gap: 4, background: 'var(--surface2)', borderRadius: 12, padding: 4, marginBottom: 20, overflowX: 'auto' }}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            style={{ position: 'relative', padding: '10px 18px', borderRadius: 10, border: 'none', background: tab === t.key ? '#fff' : 'transparent', cursor: 'pointer', fontSize: '0.85rem', color: tab === t.key ? 'var(--terra-700)' : 'var(--text-secondary)', fontFamily: 'var(--font-body)', fontWeight: tab === t.key ? 600 : 400, boxShadow: tab === t.key ? 'var(--shadow)' : 'none', whiteSpace: 'nowrap', transition: 'all 0.2s' }}>
+            style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 10, border: 'none', background: tab === t.key ? '#fff' : 'transparent', cursor: 'pointer', fontSize: '0.85rem', color: tab === t.key ? 'var(--terra-700)' : 'var(--text-secondary)', fontFamily: 'var(--font-body)', fontWeight: tab === t.key ? 600 : 400, boxShadow: tab === t.key ? 'var(--shadow)' : 'none', whiteSpace: 'nowrap', transition: 'all 0.2s' }}>
+            {t.icon}
             {t.label}
             {(t.badge ?? 0) > 0 && (
               <span style={{ position: 'absolute', top: -4, right: -4, background: '#ef4444', color: '#fff', fontSize: '0.58rem', fontWeight: 700, padding: '1px 4px', borderRadius: 8 }}>{t.badge}</span>
@@ -1024,7 +1043,7 @@ export default function OwnerDashboard() {
             <Pagination current={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
           </div>
         );
-      })() : (() => {
+      })() : tab === 'contracts' ? (() => {
         const filtered = contracts.filter(c => {
           const prop = properties.find(p => p.id === c.propertyId);
           const tenant = allTenants.find(u => u.id === c.tenantId);
@@ -1042,22 +1061,21 @@ export default function OwnerDashboard() {
                 const prop = properties.find(p => p.id === c.propertyId);
                 return (
                   <div key={c.id} className="card" style={{ padding: 20 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: '1.05rem' }}>{prop?.title}</div>
-                        <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 2 }}>Tenant: <strong>{allTenants.find(u => u.id === c.tenantId)?.name}</strong></div>
+                        <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-primary)' }}>{prop?.title || 'Unknown Property'}</div>
+                        <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                          Tenant: {allTenants.find(u => u.id === c.tenantId)?.name || 'Unknown'}
+                        </div>
                       </div>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '3px 10px', borderRadius: 20,
-                        background: c.status === 'active' ? 'var(--sage-100)' : c.status === 'on_notice' ? '#fef3c7' : '#f1f5f9',
-                        color: c.status === 'active' ? 'var(--sage-700)' : c.status === 'on_notice' ? '#92400e' : '#64748b',
-                      }}>{c.status.replace('_', ' ')}</span>
+                      <ReservationBadge status={c.status} />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-                      <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '8px 10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                      <div style={{ background: 'var(--surface2)', padding: '10px 12px', borderRadius: 8 }}>
                         <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Rent</div>
-                        <div style={{ fontWeight: 700, color: 'var(--teal)', fontSize: '0.95rem' }}>{formatCurrency(c.rentAmount, c.currency)}</div>
+                        <div style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--teal-dark)' }}>{formatCurrency(c.rentAmount, c.currency)}</div>
                       </div>
-                      <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '8px 10px' }}>
+                      <div style={{ background: 'var(--surface2)', padding: '10px 12px', borderRadius: 8 }}>
                         <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Period</div>
                         <div style={{ fontSize: '0.78rem', fontWeight: 500 }}>{c.startDate} → {c.endDate}</div>
                       </div>
@@ -1092,7 +1110,157 @@ export default function OwnerDashboard() {
             <Pagination current={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
           </div>
         );
-      })()
+      })() : tab === 'public-page' ? (
+        <div className="grid-2" style={{ gap: 32 }}>
+          <div className="card" style={{ padding: 24 }}>
+            <h2 style={{ fontSize: '1.2rem', marginBottom: 6 }}>Page Settings</h2>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 24 }}>Choose how your properties look to the world.</p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div className="form-group">
+                <label className="form-label">Profile Slug (Short URL name)</label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>/p/</span>
+                  <input className="form-input" placeholder="my-property-brand"
+                    value={ownerSettings.slug}
+                    onChange={e => setOwnerSettings(s => ({ ...s, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))} />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Display Name</label>
+                <input className="form-input" value={ownerSettings.displayName} 
+                  onChange={e => setOwnerSettings(s => ({ ...s, displayName: e.target.value }))} />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Bio</label>
+                <textarea className="form-input" style={{ minHeight: 80 }} value={ownerSettings.bio}
+                  onChange={e => setOwnerSettings(s => ({ ...s, bio: e.target.value }))} />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Template Style</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                  {(['commercial', 'residential', 'both'] as const).map(t => (
+                    <button key={t} className={`btn ${ownerSettings.template === t ? 'btn-primary' : 'btn-ghost'}`}
+                      style={{ fontSize: '0.75rem', textTransform: 'capitalize' }}
+                      onClick={() => setOwnerSettings(s => ({ ...s, template: t }))}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="form-group">
+                 <label className="form-label">Primary Color</label>
+                 <input type="color" className="form-input" style={{ height: 44, padding: 4 }}
+                  value={ownerSettings.primaryColor}
+                  onChange={e => setOwnerSettings(s => ({ ...s, primaryColor: e.target.value }))} />
+              </div>
+
+              <div className="form-group">
+                 <label className="form-label">Font Family</label>
+                 <select className="form-input" value={ownerSettings.fontFamily}
+                  onChange={e => setOwnerSettings(s => ({ ...s, fontFamily: e.target.value }))}>
+                   <option value="Inter">Inter (Default)</option>
+                   <option value="Outfit">Outfit (Modern)</option>
+                   <option value="Playfair Display">Playfair Display (Elegant)</option>
+                   <option value="Roboto Mono">Roboto Mono (Technical)</option>
+                 </select>
+              </div>
+
+              <div className="divider"></div>
+              <h3 style={{ fontSize: '1rem', marginBottom: 12 }}>Social Media & Links</h3>
+              
+              <div className="grid-2">
+                <div className="form-group">
+                  <label className="form-label">WhatsApp (Number only)</label>
+                  <input className="form-input" placeholder="250..." value={ownerSettings.socialLinks?.whatsapp || ''}
+                    onChange={e => setOwnerSettings(s => ({ ...s, socialLinks: { ...s.socialLinks, whatsapp: e.target.value } }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Facebook Profile Link</label>
+                  <input className="form-input" placeholder="https://..." value={ownerSettings.socialLinks?.facebook || ''}
+                    onChange={e => setOwnerSettings(s => ({ ...s, socialLinks: { ...s.socialLinks, facebook: e.target.value } }))} />
+                </div>
+              </div>
+
+              <div style={{ padding: '16px', background: 'var(--surface2)', borderRadius: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>Public Page Status</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{ownerSettings.enabled ? 'Enabled' : 'Disabled'}</div>
+                  </div>
+                  <button className={`btn ${ownerSettings.enabled ? 'btn-danger' : 'btn-primary'}`} style={{ fontSize: '0.8rem' }}
+                    onClick={() => setOwnerSettings(s => ({ ...s, enabled: !s.enabled }))}>
+                    {ownerSettings.enabled ? 'Disable' : 'Enable'}
+                  </button>
+                </div>
+              </div>
+
+              <button className="btn btn-primary btn-lg" style={{ marginTop: 10, justifyContent: 'center' }}
+                disabled={savingSettings}
+                onClick={async () => {
+                  if (!ownerSettings.slug) return show('Please set a slug first', 'error');
+                  setSavingSettings(true);
+                  try {
+                    await updateProfile({ ownerSettings });
+                    show('Settings saved to Firebase!');
+                  } catch (err: any) {
+                    show(err.message || 'Error saving settings', 'error');
+                  } finally {
+                    setSavingSettings(false);
+                  }
+                }}>
+                {savingSettings ? 'Saving...' : 'Save & Publish'}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+             <div className="card" style={{ padding: 24, background: 'var(--blue-900)', color: '#fff' }}>
+                <h3 style={{ color: '#fff', marginBottom: 10 }}>Public Link</h3>
+                {ownerSettings.enabled ? (
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <code style={{ background: 'rgba(255,255,255,0.1)', padding: '8px 12px', borderRadius: 6, flex: 1, fontSize: '0.85rem' }}>
+                      /p/{ownerSettings.slug}
+                    </code>
+                    <button className="btn btn-primary btn-sm" onClick={() => window.open(`/p/${ownerSettings.slug}`, '_blank')}>Visit</button>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '0.85rem', opacity: 0.8 }}>Enable page to generate live link.</p>
+                )}
+             </div>
+
+             <div className="card" style={{ padding: 24 }}>
+                <h3 style={{ marginBottom: 12 }}>Visual Preview</h3>
+                <div 
+                  onClick={() => ownerSettings.enabled ? window.open(`/p/${ownerSettings.slug}`, '_blank') : show('Enable page to view live')}
+                  style={{ 
+                    border: '1px dashed #cbd5e1', borderRadius: 12, padding: 30, textAlign: 'center',
+                    background: ownerSettings.template === 'commercial' ? '#f8fafc' : ownerSettings.template === 'residential' ? '#fffaf5' : '#f9fafb',
+                    fontFamily: ownerSettings.fontFamily,
+                    cursor: ownerSettings.enabled ? 'pointer' : 'default',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={e => { if(ownerSettings.enabled) e.currentTarget.style.borderColor = ownerSettings.primaryColor }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#cbd5e1' }}
+                >
+                   <div style={{ width: 80, height: 80, borderRadius: ownerSettings.template === 'commercial' ? 4 : 50, background: ownerSettings.primaryColor, margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '2rem', fontWeight: 800 }}>
+                     {ownerSettings.displayName.charAt(0)}
+                   </div>
+                   <h4 style={{ color: ownerSettings.template === 'commercial' ? '#0f172a' : '#111827', fontSize: '1.2rem' }}>{ownerSettings.displayName}</h4>
+                   <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 4, textTransform: 'uppercase' }}>{ownerSettings.template} layout</p>
+                   
+                   <div style={{ marginTop: 24 }}>
+                      <span style={{ fontSize: '0.8rem', color: ownerSettings.primaryColor, fontWeight: 600 }}>Click to see live page →</span>
+                   </div>
+                </div>
+             </div>
+          </div>
+        </div>
+      ) : null
       }
       {managingUnits && <UnitManager property={managingUnits} onClose={() => setManagingUnits(null)} />} 
     </div>

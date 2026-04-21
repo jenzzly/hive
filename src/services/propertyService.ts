@@ -54,6 +54,18 @@ export const getOwnerProperties = async (ownerId: string): Promise<Property[]> =
   return snap.docs.map(normalize);
 };
 
+export const getOwnerPublicProperties = async (ownerId: string): Promise<Property[]> => {
+  const q = query(
+    collection(db, COL),
+    where('ownerId', '==', ownerId),
+    where('isPublic', '==', true),
+    where('status', '==', 'available'),
+    orderBy('createdAt', 'desc'),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(normalize);
+};
+
 // ─── tenant ─────────────────────────────────────────────────────────
 export const getTenantProperty = async (tenantId: string): Promise<Property | null> => {
   const q = query(collection(db, COL), where('tenantId', '==', tenantId));

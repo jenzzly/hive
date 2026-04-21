@@ -5,6 +5,7 @@ import type { OwnerAnalytics } from '../services/analyticsService';
 import { useSettings } from '../contexts/SettingsContext';
 import { formatCurrency, getCurrencySymbol } from '../utils/format';
 import type { Property, Contract } from '../types';
+import { AnalyticsIcon } from '../components/Icons';
 
 // ─── tiny bar component ───────────────────────────────────────────────
 function Bar({ value, max, color }: { value: number; max: number; color: string }) {
@@ -95,7 +96,10 @@ export default function OwnerAnalyticsPage() {
   return (
     <div className="container page">
       <div style={{ marginBottom: 28 }}>
-        <h1 className="page-title">Analytics</h1>
+        <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <AnalyticsIcon size={24} color="var(--blue-600)" />
+          Analytics
+        </h1>
         <p className="page-subtitle">Income projections and portfolio performance</p>
       </div>
 

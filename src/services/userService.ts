@@ -1,6 +1,6 @@
 import {
   collection, doc, getDocs, updateDoc, deleteDoc,
-  query, orderBy, getDoc,
+  query, orderBy, getDoc, where, limit,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { User, UserRole, Language } from '../types';
@@ -47,6 +47,21 @@ export const getUserById = async (userId: string): Promise<User | null> => {
   return { 
     ...data, 
     id: snap.id, 
+    photoURL: data.photoURL ? resolveFileUrl(data.photoURL) : undefined,
+    idDocumentUrl: data.idDocumentUrl ? resolveFileUrl(data.idDocumentUrl) : undefined,
+    createdAt: data.createdAt?.toDate?.()?.toISOString?.() ?? '' 
+  } as unknown as User;
+};
+
+export const getUserBySlug = async (slug: string): Promise<User | null> => {
+  const q = query(collection(db, COL), where('ownerSettings.slug', '==', slug), limit(1));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const d = snap.docs[0];
+  const data = d.data();
+  return { 
+    ...data, 
+    id: d.id, 
     photoURL: data.photoURL ? resolveFileUrl(data.photoURL) : undefined,
     idDocumentUrl: data.idDocumentUrl ? resolveFileUrl(data.idDocumentUrl) : undefined,
     createdAt: data.createdAt?.toDate?.()?.toISOString?.() ?? '' 

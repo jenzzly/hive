@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { subscribeToAuthState, getUserProfile } from '../services/authService';
+import { updateUserProfile } from '../services/userService';
 import type { User } from '../types';
 
 interface AuthContextValue {
@@ -8,6 +9,7 @@ interface AuthContextValue {
   userProfile: User | null;
   loading: boolean;
   refreshProfile: () => Promise<void>;
+  updateProfile: (data: Partial<User>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -15,6 +17,7 @@ const AuthContext = createContext<AuthContextValue>({
   userProfile: null,
   loading: true,
   refreshProfile: async () => {},
+  updateProfile: async () => {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -44,8 +47,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return unsub;
   }, []);
 
+  const updateProfile = async (data: Partial<User>) => {
+    if (!userProfile) return;
+    await updateUserProfile(userProfile.id, data);
+    await refreshProfile();
+  };
+
   return (
-    <AuthContext.Provider value={{ firebaseUser, userProfile, loading, refreshProfile }}>
+    <AuthContext.Provider value={{ firebaseUser, userProfile, loading, refreshProfile, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

@@ -6,6 +6,10 @@ import type { PlatformSettings } from '../types';
 import { useToast } from '../hooks/useToast';
 import { useSettings } from '../contexts/SettingsContext';
 import { formatCurrency, getCurrencySymbol } from '../utils/format';
+import { 
+  AnalyticsIcon, WalletIcon, UsersIcon, 
+  HomeIcon, ChartIcon 
+} from '../components/Icons';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -32,12 +36,12 @@ function buildProjection(data: PlatformAnalytics, defaultCurrency: string, count
 
 // ── Sub-components ────────────────────────────────────────────────────
 
-function KpiCard({ label, value, sub, color, icon }: { label: string; value: string; sub: string; color: string; icon: string }) {
+function KpiCard({ label, value, sub, color, icon }: { label: string; value: string; sub: string; color: string; icon: React.ReactNode }) {
   return (
     <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>{label}</div>
-        <span style={{ fontSize: '1.2rem' }}>{icon}</span>
+        {icon}
       </div>
       <div style={{ fontSize: 'clamp(1.4rem, 2.8vw, 1.9rem)', fontWeight: 700, color, lineHeight: 1.1 }}>{value}</div>
       <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{sub}</div>
@@ -237,7 +241,10 @@ export default function PlatformAnalyticsPage() {
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
-          <h1 className="page-title">Platform Analytics</h1>
+          <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <AnalyticsIcon size={24} color="#7c3aed" />
+            Platform Analytics
+          </h1>
           <span className="badge badge-red">SuperAdmin</span>
         </div>
         <p className="page-subtitle">Platform-wide income, occupancy trends, and service fee management</p>
@@ -245,12 +252,12 @@ export default function PlatformAnalyticsPage() {
 
       {/* KPI cards */}
       <div className="grid-6" style={{ marginBottom: 28 }}>
-        <KpiCard label="Platform MRR" value={formatCurrency(grossMRR, defaultCurrency)} sub={`${activeContracts.length} active`} color="var(--teal)" icon="💰" />
-        <KpiCard label="Fees / mo" value={formatCurrency(feesMRR, defaultCurrency)} sub="Projected" color="#7c3aed" icon="🏦" />
-        <KpiCard label="Total Fees" value={formatCurrency(totalVerifiedFees, defaultCurrency)} sub="Verified income" color="#059669" icon="📈" />
-        <KpiCard label="Occupancy" value={`${occupancyRate}%`} sub={`${occupied.length} occupied`} color={occupancyRate >= 75 ? 'var(--teal)' : '#f59e0b'} icon="🏠" />
-        <KpiCard label="Properties" value={String(properties.length)} sub={`${publicProps.length} listed`} color="#1d4ed8" icon="🏘️" />
-        <KpiCard label="Units" value={String(totalUnits)} sub={`${totalUsers} users`} color="#3b82f6" icon="👥" />
+        <KpiCard label="Platform MRR" value={formatCurrency(grossMRR, defaultCurrency)} sub={`${activeContracts.length} active`} color="var(--teal)" icon={<WalletIcon size={24} color="var(--teal)" />} />
+        <KpiCard label="Fees / mo" value={formatCurrency(feesMRR, defaultCurrency)} sub="Projected" color="#7c3aed" icon={<ChartIcon size={24} color="#7c3aed" />} />
+        <KpiCard label="Total Fees" value={formatCurrency(totalVerifiedFees, defaultCurrency)} sub="Verified income" color="#059669" icon={<AnalyticsIcon size={24} color="#059669" />} />
+        <KpiCard label="Occupancy" value={`${occupancyRate}%`} sub={`${occupied.length} occupied`} color={occupancyRate >= 75 ? 'var(--teal)' : '#f59e0b'} icon={<HomeIcon size={24} color={occupancyRate >= 75 ? 'var(--teal)' : '#f59e0b'} />} />
+        <KpiCard label="Properties" value={String(properties.length)} sub={`${publicProps.length} listed`} color="#1d4ed8" icon={<HomeIcon size={24} color="#1d4ed8" />} />
+        <KpiCard label="Units" value={String(totalUnits)} sub={`${totalUsers} users`} color="#3b82f6" icon={<UsersIcon size={24} color="#3b82f6" />} />
       </div>
 
       {/* Fee control + revenue preview */}

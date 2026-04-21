@@ -23,6 +23,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import TenantAnalyticsPage from './pages/TenantAnalyticsPage';
 import Company from './pages/Company';
+import OwnerPublicPage from './pages/OwnerPublicPage';
 
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
@@ -64,6 +65,7 @@ function AppRoutes() {
           <Route path="/work" element={<Company />} />
           <Route path="/careers" element={<Company />} />
           <Route path="/partnership" element={<Company />} />
+          <Route path="/p/:slug" element={<OwnerPublicPage />} />
 
 
           {/* Any logged-in user */}

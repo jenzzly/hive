@@ -7,6 +7,10 @@ import { getTenantReimbursements } from '../services/reimbursementService';
 import { useSettings } from '../contexts/SettingsContext';
 import { formatCurrency } from '../utils/format';
 import type { Property, Contract, RentPayment, ReimbursementRequest, Currency } from '../types';
+import { 
+  AnalyticsIcon, WalletIcon, 
+  BackIcon, HomeIcon 
+} from '../components/Icons';
 
 function ProgressBar({ value, max, color = 'var(--teal)' }: { value: number; max: number; color?: string }) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
@@ -17,10 +21,10 @@ function ProgressBar({ value, max, color = 'var(--teal)' }: { value: number; max
   );
 }
 
-function StatCard({ icon, label, value, sub, color = 'var(--teal)' }: { icon: string; label: string; value: string; sub?: string; color?: string }) {
+function StatCard({ icon, label, value, sub, color = 'var(--teal)' }: { icon: React.ReactNode; label: string; value: string; sub?: string; color?: string }) {
   return (
     <div className="card" style={{ padding: '20px 22px', display: 'flex', alignItems: 'center', gap: 16 }}>
-      <div style={{ width: 48, height: 48, borderRadius: 14, background: color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', flexShrink: 0 }}>
+      <div style={{ width: 48, height: 48, borderRadius: 14, background: color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         {icon}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -93,16 +97,19 @@ export default function TenantAnalyticsPage() {
   return (
     <div className="container page">
       <div style={{ marginBottom: 28 }}>
-        <h1 className="page-title">📊 My Payment Analytics</h1>
+        <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <AnalyticsIcon size={24} color="var(--blue-600)" />
+          My Payment Analytics
+        </h1>
         <p className="page-subtitle">Full financial overview of your rental history</p>
       </div>
 
       {/* Stats grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 32 }}>
-        <StatCard icon="✅" label="Payments Verified" value={String(onTimeCount)} sub={`${payments.length} total submissions`} color="var(--teal)" />
-        <StatCard icon="⏳" label="Awaiting Verification" value={String(pending.length)} color="#f59e0b" />
-        <StatCard icon="❌" label="Rejected" value={String(rejected.length)} color="#ef4444" />
-        <StatCard icon="↩" label="Reimbursements" value={reimbursements.length > 0 ? formatCurrency(reimbPaid, defaultCurrency) : '—'} sub={`${reimbursements.length} request(s)`} color="#8b5cf6" />
+        <StatCard icon={<WalletIcon size={24} color="var(--teal)" />} label="Payments Verified" value={String(onTimeCount)} sub={`${payments.length} total submissions`} color="var(--teal)" />
+        <StatCard icon={<BackIcon size={24} color="#f59e0b" />} label="Awaiting Verification" value={String(pending.length)} color="#f59e0b" />
+        <StatCard icon={<HomeIcon size={24} color="#ef4444" />} label="Rejected" value={String(rejected.length)} color="#ef4444" />
+        <StatCard icon={<AnalyticsIcon size={24} color="#8b5cf6" />} label="Reimbursements" value={reimbursements.length > 0 ? formatCurrency(reimbPaid, defaultCurrency) : '—'} sub={`${reimbursements.length} request(s)`} color="#8b5cf6" />
       </div>
 
       {/* Total paid */}

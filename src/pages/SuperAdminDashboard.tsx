@@ -16,6 +16,11 @@ import type {
   Contract, Currency, PropertyCategory, PropertyType, 
   ContractStatus, ReimbursementStatus, PaymentStatus, PlatformSettings, Unit 
 } from '../types';
+import { 
+  UsersIcon, HomeIcon, WalletIcon, 
+  BackIcon, FileIcon, AnalyticsIcon, 
+  SettingsIcon 
+} from '../components/Icons';
 
 type Tab = 'users' | 'properties' | 'payments' | 'reimbursements' | 'contracts' | 'analytics' | 'settings';
 
@@ -264,14 +269,14 @@ export default function SuperAdminDashboard() {
     activeContracts: contracts.filter((c: Contract) => c.status === 'active').length,
   };
 
-  const TABS: { key: Tab; label: string; badge?: number }[] = [
-    { key: 'users', label: '👥 Users' },
-    { key: 'properties', label: '🏠 Properties' },
-    { key: 'payments', label: '💳 Payments', badge: stats.pendingPay },
-    { key: 'reimbursements', label: '↩ Reimbursements', badge: stats.pendingReimb },
-    { key: 'contracts', label: '📜 Contracts' },
-    { key: 'analytics', label: '📊 Analytics' },
-    { key: 'settings', label: '⚙ Settings' },
+  const TABS: { key: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
+    { key: 'users', label: 'Users', icon: <UsersIcon size={16} /> },
+    { key: 'properties', label: 'Properties', icon: <HomeIcon size={16} /> },
+    { key: 'payments', label: 'Payments', icon: <WalletIcon size={16} />, badge: stats.pendingPay },
+    { key: 'reimbursements', label: 'Reimbursements', icon: <BackIcon size={16} />, badge: stats.pendingReimb },
+    { key: 'contracts', label: 'Contracts', icon: <FileIcon size={16} /> },
+    { key: 'analytics', label: 'Analytics', icon: <AnalyticsIcon size={16} /> },
+    { key: 'settings', label: 'Settings', icon: <SettingsIcon size={16} /> },
   ];
 
   function Pagination({ current, total, pageSize, onChange }: { current: number; total: number; pageSize: number; onChange: (p: number) => void }) {
@@ -292,7 +297,7 @@ export default function SuperAdminDashboard() {
 
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
-          <h1 className="page-title">{t('superAdmin')}</h1>
+          <h1 className="page-title">{TABS.find(t => t.key === tab)?.label || tab}</h1>
           <span className="badge badge-red">Full Access</span>
         </div>
         <p className="page-subtitle">Platform-wide management and settings.</p>
@@ -468,7 +473,8 @@ export default function SuperAdminDashboard() {
         <div style={{ display: 'flex', gap: 4, background: 'var(--surface2)', borderRadius: 12, padding: 4, overflowX: 'auto' }}>
           {TABS.map(tabItem => (
             <button key={tabItem.key} onClick={() => { setTab(tabItem.key); setSearch(''); }}
-              style={{ position: 'relative', padding: '8px 16px', borderRadius: 9, border: 'none', background: tab === tabItem.key ? '#fff' : 'transparent', cursor: 'pointer', fontSize: '0.85rem', color: tab === tabItem.key ? 'var(--teal)' : 'var(--text-secondary)', fontFamily: 'var(--font-body)', fontWeight: tab === tabItem.key ? 600 : 400, boxShadow: tab === tabItem.key ? 'var(--shadow)' : 'none', whiteSpace: 'nowrap' }}>
+              style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 9, border: 'none', background: tab === tabItem.key ? '#fff' : 'transparent', cursor: 'pointer', fontSize: '0.85rem', color: tab === tabItem.key ? 'var(--teal)' : 'var(--text-secondary)', fontFamily: 'var(--font-body)', fontWeight: tab === tabItem.key ? 600 : 400, boxShadow: tab === tabItem.key ? 'var(--shadow)' : 'none', whiteSpace: 'nowrap' }}>
+              {tabItem.icon}
               {tabItem.label}
               {(tabItem.badge ?? 0) > 0 && (
                 <span style={{ position: 'absolute', top: 3, right: 4, background: '#ef4444', color: '#fff', fontSize: '0.58rem', fontWeight: 700, padding: '1px 4px', borderRadius: 8 }}>{tabItem.badge}</span>

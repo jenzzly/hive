@@ -3,6 +3,7 @@ import { getAllProperties, deleteProperty, updateProperty } from '../services/pr
 import { useToast } from '../hooks/useToast';
 import PropertyCard from '../components/PropertyCard';
 import type { Property } from '../types';
+import { AdminIcon } from '../components/Icons';
 
 export default function AdminDashboard() {
   const { show, ToastContainer } = useToast();
@@ -65,7 +66,10 @@ export default function AdminDashboard() {
     <div className="container page">
       <ToastContainer />
       <div style={{ marginBottom: 28 }}>
-        <h1 className="page-title">Admin Dashboard</h1>
+        <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <AdminIcon size={24} color="var(--blue-600)" />
+          Admin Dashboard
+        </h1>
         <p className="page-subtitle">Full platform overview</p>
       </div>
 

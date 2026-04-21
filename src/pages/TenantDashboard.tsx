@@ -15,6 +15,10 @@ import MaintenanceForm from '../components/MaintenanceForm';
 import type { Property, Contract, MaintenanceRequest, RentPayment, ReimbursementRequest, Currency } from '../types';
 import { useSettings } from '../contexts/SettingsContext';
 import { formatCurrency } from '../utils/format';
+import { 
+  HomeIcon, WalletIcon, FileIcon, 
+  ToolsIcon, BackIcon 
+} from '../components/Icons';
 
 type Tab = 'properties' | 'payments' | 'contracts' | 'maintenance' | 'reimbursements';
 
@@ -229,12 +233,12 @@ export default function TenantDashboard() {
   const pendingPayments = payments.filter(p => p.status === 'pending').length;
   const pendingReimbs = reimbursements.filter(r => r.status === 'pending').length;
 
-  const TABS: { key: Tab; label: string; badge?: number }[] = [
-    { key: 'properties', label: '🏠 My Units' },
-    { key: 'payments', label: '💳 Payments', badge: pendingPayments },
-    { key: 'contracts', label: '📄 Contracts' },
-    { key: 'maintenance', label: '🔧 Maintenance' },
-    { key: 'reimbursements', label: '↩ Reimbursements', badge: pendingReimbs },
+  const TABS: { key: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
+    { key: 'properties', label: 'My Units', icon: <HomeIcon size={16} /> },
+    { key: 'payments', label: 'Payments', icon: <WalletIcon size={16} />, badge: pendingPayments },
+    { key: 'contracts', label: 'Contracts', icon: <FileIcon size={16} /> },
+    { key: 'maintenance', label: 'Maintenance', icon: <ToolsIcon size={16} /> },
+    { key: 'reimbursements', label: 'Reimbursements', icon: <BackIcon size={16} />, badge: pendingReimbs },
   ];
   const handleSendNotice = async (contractId: string) => {
     if (!confirm('Are you sure you want to send a 15-day notice of termination? This cannot be undone.')) return;
@@ -267,7 +271,7 @@ export default function TenantDashboard() {
     <div className="container page">
       <ToastContainer />
       <div style={{ marginBottom: 24 }}>
-        <h1 className="page-title">My Dashboard</h1>
+        <h1 className="page-title" style={{ textTransform: 'capitalize' }}>{TABS.find(t => t.key === tab)?.label || tab}</h1>
         <p className="page-subtitle">Welcome, {userProfile.name}</p>
       </div>
 
@@ -295,7 +299,8 @@ export default function TenantDashboard() {
       <div style={{ display: 'flex', gap: 4, background: 'var(--surface2)', borderRadius: 12, padding: 4, marginBottom: 28, overflowX: 'auto' }}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            style={{ position: 'relative', padding: '8px 16px', borderRadius: 9, border: 'none', background: tab === t.key ? '#fff' : 'transparent', cursor: 'pointer', fontSize: '0.85rem', color: tab === t.key ? 'var(--teal)' : 'var(--text-secondary)', fontFamily: 'var(--font-body)', fontWeight: tab === t.key ? 600 : 400, boxShadow: tab === t.key ? 'var(--shadow)' : 'none', whiteSpace: 'nowrap' }}>
+            style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 9, border: 'none', background: tab === t.key ? '#fff' : 'transparent', cursor: 'pointer', fontSize: '0.85rem', color: tab === t.key ? 'var(--teal)' : 'var(--text-secondary)', fontFamily: 'var(--font-body)', fontWeight: tab === t.key ? 600 : 400, boxShadow: tab === t.key ? 'var(--shadow)' : 'none', whiteSpace: 'nowrap' }}>
+            {t.icon}
             {t.label}
             {(t.badge ?? 0) > 0 && (
               <span style={{ position: 'absolute', top: 3, right: 4, background: '#ef4444', color: '#fff', fontSize: '0.58rem', fontWeight: 700, padding: '1px 4px', borderRadius: 8 }}>{t.badge}</span>

@@ -1,6 +1,26 @@
 export type UserRole = 'visitor' | 'tenant' | 'owner' | 'admin' | 'superAdmin';
 export type Language = 'en' | 'fr' | 'rw';
 export type Currency = 'USD' | 'RWF';
+export type OwnerTemplate = 'commercial' | 'residential' | 'both';
+
+export interface OwnerPublicSettings {
+  enabled: boolean;
+  slug: string;
+  displayName: string;
+  bio: string;
+  template: OwnerTemplate;
+  headerImage?: string;
+  profileImage?: string;
+  socialLinks?: {
+    whatsapp?: string;
+    facebook?: string;
+    instagram?: string;
+    twitter?: string;
+    website?: string;
+  };
+  fontFamily?: string;
+  primaryColor?: string;
+}
 
 export interface User {
   id: string;
@@ -14,6 +34,7 @@ export interface User {
   services?: string[]; // Array of services e.g. ['Legal', 'Maintenance', 'Tax']
   photoURL?: string;
   createdAt: string;
+  ownerSettings?: OwnerPublicSettings;
 }
 
 export type PropertyCategory =
