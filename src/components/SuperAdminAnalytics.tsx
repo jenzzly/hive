@@ -33,17 +33,28 @@ export default function SuperAdminAnalytics() {
     filteredContracts = data.contracts.filter(c => c.ownerId === selectedOwnerId);
   }
 
-  const occupied = filteredProps.filter(p => p.status === 'occupied');
-  const activeContracts = filteredContracts.filter(c => c.status === 'active');
+  const verifiedPayments = data.payments.filter(p => 
+    p.status === 'verified' && 
+    (selectedOwnerId === 'all' || p.ownerId === selectedOwnerId)
+  );
 
-  // KPI calculations
-  const grossMonthly = activeContracts.filter(c => c.currency === defaultCurrency).reduce((s, c) => s + c.rentAmount, 0);
+  const currentMonth = new Date().toISOString().slice(0, 7);
+
+  // KPI calculations based on Verified Payments
+  const grossMonthly = verifiedPayments
+    .filter(p => p.month === currentMonth && p.currency === defaultCurrency)
+    .reduce((s, p) => s + p.amount, 0);
   
-  // Fee calculation (global OR per-owner)
-  const totalFee = activeContracts.filter(c => c.currency === defaultCurrency).reduce((sum, c) => {
-    const owner = data.users.find(u => u.id === c.ownerId);
-    return sum + calcFee(c.rentAmount, data.serviceFee, owner?.platformFee);
-  }, 0);
+  const totalFee = verifiedPayments
+    .filter(p => p.month === currentMonth && p.currency === defaultCurrency)
+    .reduce((sum, p) => {
+      const owner = data.users.find(u => u.id === p.ownerId);
+      return sum + calcFee(p.amount, data.serviceFee, owner?.platformFee);
+    }, 0);
+
+  const totalCollected = verifiedPayments
+    .filter(p => p.currency === defaultCurrency)
+    .reduce((s, p) => s + p.amount, 0);
 
   const netMonthly = grossMonthly - totalFee;
   const occupancyRate = filteredProps.length > 0 ? Math.round((occupied.length / filteredProps.length) * 100) : 0;
@@ -51,12 +62,19 @@ export default function SuperAdminAnalytics() {
   // Monthly Projection
   const projection = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(new Date().getFullYear(), new Date().getMonth() + i, 1);
+    const dMonth = d.getFullYear() * 12 + d.getMonth();
     const label = `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+    
     const periodContracts = filteredContracts.filter(c => {
       if (c.status !== 'active') return false;
       if (c.currency !== defaultCurrency) return false;
-      return d >= new Date(c.startDate) && d <= new Date(c.endDate);
+      const start = new Date(c.startDate);
+      const end = new Date(c.endDate);
+      const startMonth = start.getFullYear() * 12 + start.getMonth();
+      const endMonth = end.getFullYear() * 12 + end.getMonth();
+      return dMonth >= startMonth && dMonth <= endMonth;
     });
+
     const gross = periodContracts.reduce((sum, c) => sum + c.rentAmount, 0);
     const feeAmt = periodContracts.reduce((sum, c) => {
       const owner = data.users.find(u => u.id === c.ownerId);
@@ -92,9 +110,9 @@ export default function SuperAdminAnalytics() {
       </div>
 
       <div className="grid-4" style={{ marginBottom: 32, gap: 12 }}>
-        <KpiCard label="Gross Monthly" value={formatCurrency(grossMonthly, defaultCurrency)} sub="Current active rent" color="var(--teal)" />
-        <KpiCard label="Fees Collected" value={formatCurrency(totalFee, defaultCurrency)} sub="Platform revenue" color="#f59e0b" />
-        <KpiCard label="Total Net Output" value={formatCurrency(netMonthly, defaultCurrency)} sub="Net to owners" color="#3b82f6" />
+        <KpiCard label="Total Collected" value={formatCurrency(totalCollected, defaultCurrency)} sub="All-time verified" color="var(--teal)" />
+        <KpiCard label="Gross Monthly" value={formatCurrency(grossMonthly, defaultCurrency)} sub="Current month verified" color="#3b82f6" />
+        <KpiCard label="Fees Collected" value={formatCurrency(totalFee, defaultCurrency)} sub="Monthly platform revenue" color="#f59e0b" />
         <KpiCard label="Occupancy Rate" value={`${occupancyRate}%`} sub={`${occupied.length} / ${filteredProps.length} units`} color={occupancyRate >= 75 ? 'var(--teal)' : '#f59e0b'} />
       </div>
 
@@ -130,11 +148,11 @@ export default function SuperAdminAnalytics() {
                 </tr>
               </thead>
               <tbody>
-                {owners.slice(0, 5).map((o: any) => {
+                {owners.slice(0, 10).map((o: any) => {
                   const oProps = data.properties.filter(p => p.ownerId === o.id);
-                  const oContracts = data.contracts.filter(c => c.ownerId === o.id && c.status === 'active' && c.currency === defaultCurrency);
-                  const oGross = oContracts.reduce((s, c) => s + c.rentAmount, 0);
-                  const oFee = oContracts.reduce((s, c) => s + calcFee(c.rentAmount, data.serviceFee, o.platformFee), 0);
+                  const oPayments = data.payments.filter(p => p.ownerId === o.id && p.status === 'verified' && p.currency === defaultCurrency);
+                  const oGross = oPayments.reduce((s, p) => s + p.amount, 0);
+                  const oFee = oPayments.reduce((s, p) => s + calcFee(p.amount, data.serviceFee, o.platformFee), 0);
                   return (
                     <tr key={o.id} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td style={TD}>{o.name}</td>

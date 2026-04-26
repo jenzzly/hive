@@ -16,6 +16,7 @@ import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import SettingsPage from './pages/SettingsPage';
 import OwnerAnalyticsPage from './pages/OwnerAnalyticsPage';
 import PlatformAnalyticsPage from './pages/PlatformAnalyticsPage';
+import SuperAdminReportsPage from './pages/SuperAdminReportsPage';
 import MessagesPage from './pages/MessagesPage';
 import ForgotPassword from './pages/ForgotPassword';
 import AccountReset from './pages/AccountReset';
@@ -106,9 +107,9 @@ function AppRoutes() {
               <SuperAdminDashboard />
             </ProtectedRoute>
           } />
-          <Route path="/platform-analytics" element={
+          <Route path="/reports" element={
             <ProtectedRoute roles={['admin', 'superAdmin']}>
-              <PlatformAnalyticsPage />
+              <SuperAdminReportsPage />
             </ProtectedRoute>
           } />
 

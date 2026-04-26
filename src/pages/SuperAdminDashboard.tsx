@@ -288,7 +288,6 @@ export default function SuperAdminDashboard() {
     { key: 'payments', label: 'Payments', icon: <WalletIcon size={16} />, badge: stats.pendingPay },
     { key: 'reimbursements', label: 'Reimbursements', icon: <BackIcon size={16} />, badge: stats.pendingReimb },
     { key: 'contracts', label: 'Contracts', icon: <FileIcon size={16} /> },
-    { key: 'analytics', label: 'Analytics', icon: <AnalyticsIcon size={16} /> },
     { key: 'settings', label: 'Settings', icon: <SettingsIcon size={16} /> },
   ];
 
@@ -708,9 +707,7 @@ export default function SuperAdminDashboard() {
             <Pagination current={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
           </div>
         );
-      })() : tab === 'analytics' ? (
-        <SuperAdminAnalytics />
-      ) : (
+      })() : (
         /* Settings Tab */
         <div className="card" style={{ padding: 32, maxWidth: 640 }}>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', marginBottom: 24, color: 'var(--terra-900)' }}>Platform Global Settings</h2>

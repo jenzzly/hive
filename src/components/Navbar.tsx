@@ -244,12 +244,12 @@ export default function Navbar() {
     const r = userProfile?.role;
     if (r === 'superAdmin') return [
       { to: '/super-admin', label: <NavLabel icon={<SuperAdminIcon size={15} color="currentColor" />} text={t('superAdmin')} /> },
-      { to: '/platform-analytics', label: <NavLabel icon={<AnalyticsIcon size={15} color="currentColor" />} text="Analytics" /> },
+      { to: '/reports', label: <NavLabel icon={<AnalyticsIcon size={15} color="currentColor" />} text="Reports" /> },
     ];
     if (r === 'admin') return [
       { to: '/admin', label: <NavLabel icon={<AdminIcon size={15} color="currentColor" />} text={t('admin')} /> },
       { to: '/dashboard', label: <NavLabel icon={<DashboardIcon size={15} color="currentColor" />} text={t('dashboard')} /> },
-      { to: '/platform-analytics', label: <NavLabel icon={<AnalyticsIcon size={15} color="currentColor" />} text="Analytics" /> },
+      { to: '/reports', label: <NavLabel icon={<AnalyticsIcon size={15} color="currentColor" />} text="Reports" /> },
     ];
     if (r === 'owner') return [
       { to: '/dashboard', label: <NavLabel icon={<DashboardIcon size={15} color="currentColor" />} text={t('dashboard')} /> },

@@ -15,17 +15,22 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 function buildProjection(data: PlatformAnalytics, defaultCurrency: string, count = 12) {
   const now = new Date();
+  const dNowMonth = now.getFullYear() * 12 + now.getMonth();
   return Array.from({ length: count }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const dMonth = d.getFullYear() * 12 + i; // Simplified since we are iterating months from now
     const label = `${MONTHS[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`;
     let gross = 0;
     let fees = 0;
     data.contracts.forEach(c => {
       if (c.status !== 'active') return;
       if (c.currency !== defaultCurrency) return;
-      const s = new Date(c.startDate);
-      const e = new Date(c.endDate);
-      if (d >= s && d <= e) {
+      const start = new Date(c.startDate);
+      const end = new Date(c.endDate);
+      const sMonth = start.getFullYear() * 12 + start.getMonth();
+      const eMonth = end.getFullYear() * 12 + end.getMonth();
+      const currentMonthIndex = dNowMonth + i;
+      if (currentMonthIndex >= sMonth && currentMonthIndex <= eMonth) {
         gross += c.rentAmount;
         fees += calcFee(c.rentAmount, data.serviceFee);
       }
@@ -177,13 +182,24 @@ export default function PlatformAnalyticsPage() {
   const occupied = properties.filter(p => p.status === 'occupied');
   const publicProps = properties.filter(p => p.isPublic && p.status === 'available');
 
-  const grossMRR = activeContracts.filter(c => (c.currency || 'USD') === defaultCurrency).reduce((s, c) => s + c.rentAmount, 0);
-  const feesMRR = activeContracts.filter(c => (c.currency || 'USD') === defaultCurrency).reduce((s, c) => s + calcFee(c.rentAmount, serviceFee), 0);
-  
-  // Actual verified fee revenue
-  const totalVerifiedFees = (payments || [])
-    .filter(p => p.status === 'verified' && p.currency === defaultCurrency)
-    .reduce((s, p) => s + calcFee(Number(p.amount), serviceFee), 0);
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const verifiedPayments = (payments || []).filter(p => p.status === 'verified');
+
+  const grossMonthly = verifiedPayments
+    .filter(p => p.month === currentMonth && (p.currency || 'USD') === defaultCurrency)
+    .reduce((s, p) => s + p.amount, 0);
+
+  const feesMonthly = verifiedPayments
+    .filter(p => p.month === currentMonth && (p.currency || 'USD') === defaultCurrency)
+    .reduce((s, p) => s + calcFee(p.amount, serviceFee), 0);
+
+  const totalVerifiedRevenue = verifiedPayments
+    .filter(p => (p.currency || 'USD') === defaultCurrency)
+    .reduce((s, p) => s + p.amount, 0);
+
+  const totalVerifiedFees = verifiedPayments
+    .filter(p => (p.currency || 'USD') === defaultCurrency)
+    .reduce((s, p) => s + calcFee(p.amount, serviceFee), 0);
 
   const totalUnits = units.length || properties.length;
   const occupancyRate = properties.length > 0 ? Math.round((occupied.length / properties.length) * 100) : 0;
@@ -252,12 +268,12 @@ export default function PlatformAnalyticsPage() {
 
       {/* KPI cards */}
       <div className="grid-6" style={{ marginBottom: 28 }}>
-        <KpiCard label="Platform MRR" value={formatCurrency(grossMRR, defaultCurrency)} sub={`${activeContracts.length} active`} color="var(--teal)" icon={<WalletIcon size={24} color="var(--teal)" />} />
-        <KpiCard label="Fees / mo" value={formatCurrency(feesMRR, defaultCurrency)} sub="Projected" color="#7c3aed" icon={<ChartIcon size={24} color="#7c3aed" />} />
-        <KpiCard label="Total Fees" value={formatCurrency(totalVerifiedFees, defaultCurrency)} sub="Verified income" color="#059669" icon={<AnalyticsIcon size={24} color="#059669" />} />
+        <KpiCard label="Total Collected" value={formatCurrency(totalVerifiedRevenue, defaultCurrency)} sub="Total verified rent" color="var(--teal)" icon={<WalletIcon size={24} color="var(--teal)" />} />
+        <KpiCard label="Total Fees" value={formatCurrency(totalVerifiedFees, defaultCurrency)} sub="Total platform revenue" color="#059669" icon={<AnalyticsIcon size={24} color="#059669" />} />
+        <KpiCard label="Monthly Revenue" value={formatCurrency(grossMonthly, defaultCurrency)} sub={`${MONTHS[new Date().getMonth()]} verified`} color="#3b82f6" icon={<AnalyticsIcon size={24} color="#3b82f6" />} />
+        <KpiCard label="Monthly Fees" value={formatCurrency(feesMonthly, defaultCurrency)} sub="Platform revenue" color="#7c3aed" icon={<ChartIcon size={24} color="#7c3aed" />} />
         <KpiCard label="Occupancy" value={`${occupancyRate}%`} sub={`${occupied.length} occupied`} color={occupancyRate >= 75 ? 'var(--teal)' : '#f59e0b'} icon={<HomeIcon size={24} color={occupancyRate >= 75 ? 'var(--teal)' : '#f59e0b'} />} />
         <KpiCard label="Properties" value={String(properties.length)} sub={`${publicProps.length} listed`} color="#1d4ed8" icon={<HomeIcon size={24} color="#1d4ed8" />} />
-        <KpiCard label="Units" value={String(totalUnits)} sub={`${totalUsers} users`} color="#3b82f6" icon={<UsersIcon size={24} color="#3b82f6" />} />
       </div>
 
       {/* Fee control + revenue preview */}

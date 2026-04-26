@@ -18,13 +18,24 @@ interface EmailParams {
 
 export const sendEmail = async (params: EmailParams): Promise<void> => {
   if (!window.emailjs) {
-    throw new Error('EmailJS CDN is not loaded properly in index.html');
+    throw new Error('EmailJS SDK not found. Please refresh the page.');
   }
 
   try {
-    await window.emailjs.send(SERVICE_ID, TEMPLATE_ID, params, PUBLIC_KEY);
+    // Ensure initialized (v4 style)
+    if (PUBLIC_KEY) {
+      window.emailjs.init({
+        publicKey: PUBLIC_KEY,
+        blockHeadless: true,
+      });
+    }
+
+    const response = await window.emailjs.send(SERVICE_ID, TEMPLATE_ID, params);
+    console.log('Email sent successfully:', response);
   } catch (err: any) {
-    throw new Error('Email sending failed: ' + JSON.stringify(err));
+    console.error('EmailJS error details:', err);
+    const errorMsg = err?.text || err?.message || JSON.stringify(err);
+    throw new Error(`Email failed: ${errorMsg}`);
   }
 };
 
